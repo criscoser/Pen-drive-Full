@@ -12,18 +12,20 @@
 # para o GitHub (tem senha de Wi-Fi).
 $WifiNome      = ''
 $WifiSenha     = ''
-# Produto do Office: O365BusinessRetail | O365ProPlusRetail | O365HomePremRetail | '' (nao instalar)
-$OfficeProduto = 'O365BusinessRetail'
+# Produto do Office ja marcado no menu: O365BusinessRetail | O365ProPlusRetail | O365HomePremRetail
+# '' = Office desmarcado (se marcar no menu, usa O365BusinessRetail)
+$OfficeProduto = ''
 # $true = tambem atualiza programas que ja existem (mais lento). $false = so instala o que falta
 $AtualizarProgramas = $false
 # $true = aplica privacidade (sem telemetria) e otimizacoes do Windows
 $Otimizar = $true
+# $true = mostra a lista de programas para escolher antes de comecar
+$PerguntarProgramas = $true
 $Programas = @(
     'Google.Chrome',
     '7zip.7zip',
     'Adobe.Acrobat.Reader.64-bit',
-    'VideoLAN.VLC',
-    'AnyDesk.AnyDesk'
+    'VideoLAN.VLC'
 )
 $cfgArq = Join-Path (Split-Path -Parent $PSCommandPath) 'config.json'
 if (Test-Path $cfgArq) {
@@ -34,6 +36,7 @@ if (Test-Path $cfgArq) {
         if ($null -ne $cfg.OfficeProduto)      { $OfficeProduto = [string]$cfg.OfficeProduto }
         if ($null -ne $cfg.AtualizarProgramas) { $AtualizarProgramas = [bool]$cfg.AtualizarProgramas }
         if ($null -ne $cfg.Otimizar)           { $Otimizar = [bool]$cfg.Otimizar }
+        if ($null -ne $cfg.PerguntarProgramas) { $PerguntarProgramas = [bool]$cfg.PerguntarProgramas }
         if ($cfg.Programas)                    { $Programas = @($cfg.Programas) }
     } catch { Write-Host "  (aviso) config.json invalido - usando valores padrao" -ForegroundColor DarkYellow }
 }
@@ -73,11 +76,72 @@ function Tem-Internet {
     try { (Invoke-WebRequest 'http://www.msftconnecttest.com/connecttest.txt' -UseBasicParsing -TimeoutSec 5).Content -like 'Microsoft Connect Test*' } catch { $false }
 }
 
+function Ler-ComTempo($pergunta, $segundos) {
+    # Le uma resposta; se ninguem digitar nada em $segundos, devolve $null
+    Write-Host -NoNewline $pergunta
+    $txt = ''; $fim = (Get-Date).AddSeconds($segundos)
+    try {
+        while ((Get-Date) -lt $fim) {
+            if ([Console]::KeyAvailable) {
+                $k = [Console]::ReadKey($true)
+                if ($k.Key -eq 'Enter') { Write-Host ''; return $txt }
+                if ($k.Key -eq 'Backspace') { if ($txt.Length) { $txt = $txt.Substring(0, $txt.Length-1); Write-Host -NoNewline "`b `b" } ; continue }
+                $txt += $k.KeyChar; Write-Host -NoNewline $k.KeyChar
+                $fim = (Get-Date).AddSeconds($segundos)
+            } else { Start-Sleep -Milliseconds 200 }
+        }
+    } catch { Write-Host ''; return (Read-Host) }
+    Write-Host ''; return $null
+}
 Write-Host "POS-FORMATACAO iniciado em $(Get-Date). Pode levar de 30 a 60 minutos." -ForegroundColor White
 Write-Host "Deixe o carregador LIGADO e nao feche esta janela." -ForegroundColor White
 Write-Host "Se o notebook reiniciar sozinho e abrir o menu do Ventoy, NAO escolha nada: ele entra no Windows em 10 s." -ForegroundColor Yellow
 
 if (-not $SoRelatorio) {
+
+# ---------------- ESCOLHA DOS PROGRAMAS ----------------
+$Catalogo = @(
+    [pscustomobject]@{ Nome='Google Chrome';           Id='Google.Chrome' },
+    [pscustomobject]@{ Nome='Mozilla Firefox';         Id='Mozilla.Firefox' },
+    [pscustomobject]@{ Nome='7-Zip';                   Id='7zip.7zip' },
+    [pscustomobject]@{ Nome='Adobe Acrobat Reader';    Id='Adobe.Acrobat.Reader.64-bit' },
+    [pscustomobject]@{ Nome='VLC (videos e musicas)';  Id='VideoLAN.VLC' },
+    [pscustomobject]@{ Nome='AnyDesk (acesso remoto)'; Id='AnyDesk.AnyDesk' },
+    [pscustomobject]@{ Nome='TeamViewer (acesso remoto)'; Id='TeamViewer.TeamViewer' },
+    [pscustomobject]@{ Nome='Zoom';                    Id='Zoom.Zoom' },
+    [pscustomobject]@{ Nome='Microsoft Teams';         Id='Microsoft.Teams' },
+    [pscustomobject]@{ Nome='LibreOffice (gratuito)';  Id='TheDocumentFoundation.LibreOffice' },
+    [pscustomobject]@{ Nome='Notepad++';               Id='Notepad++.Notepad++' },
+    [pscustomobject]@{ Nome='Microsoft 365 (Office)';  Id='OFFICE' }
+)
+foreach ($p in $Programas) { if (-not ($Catalogo.Id -contains $p)) { $Catalogo += [pscustomobject]@{ Nome=$p; Id=$p } } }
+$marcado = @{}
+foreach ($c in $Catalogo) { $marcado[$c.Id] = ($Programas -contains $c.Id) -or ($c.Id -eq 'OFFICE' -and $OfficeProduto) }
+if ($PerguntarProgramas) {
+    $tempo = 60
+    while ($true) {
+        Write-Host ''
+        Write-Host '  PROGRAMAS PARA INSTALAR   ([X] = vai instalar)' -ForegroundColor Cyan
+        for ($i = 0; $i -lt $Catalogo.Count; $i++) {
+            $c = $Catalogo[$i]
+            if ($marcado[$c.Id]) { Write-Host ("   [X] {0,2}) {1}" -f ($i+1), $c.Nome) -ForegroundColor Green }
+            else { Write-Host ("   [ ] {0,2}) {1}" -f ($i+1), $c.Nome) -ForegroundColor DarkGray }
+        }
+        Write-Host '  Digite os numeros para marcar/desmarcar (ex.: 6 9). T = todos, N = nenhum.'
+        $r = Ler-ComTempo "  ENTER sozinho = confirmar ($tempo s sem resposta = instala os marcados): " $tempo
+        if ($null -eq $r -or $r.Trim() -eq '') { break }
+        $r = $r.Trim().ToUpper()
+        if ($r -eq 'T') { foreach ($c in $Catalogo) { $marcado[$c.Id] = $true }; continue }
+        if ($r -eq 'N') { foreach ($c in $Catalogo) { $marcado[$c.Id] = $false }; continue }
+        foreach ($n in ($r -split '[\s,;]+')) {
+            if ($n -match '^\d+$' -and [int]$n -ge 1 -and [int]$n -le $Catalogo.Count) { $id = $Catalogo[[int]$n-1].Id; $marcado[$id] = -not $marcado[$id] }
+        }
+    }
+}
+$Programas = @($Catalogo | Where-Object { $marcado[$_.Id] -and $_.Id -ne 'OFFICE' } | ForEach-Object { $_.Id })
+if (-not $marcado['OFFICE']) { $OfficeProduto = '' } elseif (-not $OfficeProduto) { $OfficeProduto = 'O365BusinessRetail' }
+Write-Host ("  Vai instalar: " + $(if ($Programas.Count -or $OfficeProduto) { (@($Catalogo | Where-Object { $marcado[$_.Id] } | ForEach-Object { $_.Nome }) -join ', ') } else { 'nenhum programa' })) -ForegroundColor Green
+
 # ---------------- 1. ENERGIA ----------------
 Etapa '1/10 Energia'
 powercfg /change standby-timeout-ac 0 | Out-Null
@@ -108,23 +172,6 @@ function Novo-PerfilWifi($ssid, $senha) {
 function Espera-Internet($segundos) {
     for ($i = 0; $i -lt [math]::Ceiling($segundos/5); $i++) { if (Tem-Internet) { return $true }; Start-Sleep 5 }
     return $false
-}
-function Ler-ComTempo($pergunta, $segundos) {
-    # Le uma resposta; se ninguem digitar nada em $segundos, devolve $null
-    Write-Host -NoNewline $pergunta
-    $txt = ''; $fim = (Get-Date).AddSeconds($segundos)
-    try {
-        while ((Get-Date) -lt $fim) {
-            if ([Console]::KeyAvailable) {
-                $k = [Console]::ReadKey($true)
-                if ($k.Key -eq 'Enter') { Write-Host ''; return $txt }
-                if ($k.Key -eq 'Backspace') { if ($txt.Length) { $txt = $txt.Substring(0, $txt.Length-1); Write-Host -NoNewline "`b `b" } ; continue }
-                $txt += $k.KeyChar; Write-Host -NoNewline $k.KeyChar
-                $fim = (Get-Date).AddSeconds($segundos)
-            } else { Start-Sleep -Milliseconds 200 }
-        }
-    } catch { Write-Host ''; return (Read-Host) }
-    Write-Host ''; return $null
 }
 function Salvar-WifiNoConfig($ssid, $senha) {
     try {
@@ -371,6 +418,8 @@ else {
 
 # ---------------- 5. PROGRAMAS ----------------
 Etapa '5/10 Programas'
+if (-not $Programas.Count) { Ok 'Nenhum programa selecionado' }
+else {
 if ($internet) {
     $winget = Get-Command winget.exe -ErrorAction SilentlyContinue
     if (-not $winget) {
@@ -415,11 +464,12 @@ if ($internet) {
         } catch { Falha 'Google Chrome' }
     }
 } else { Falha 'Programas nao instalados (sem internet)' }
+}
 
 # ---------------- 5. OFFICE ----------------
 Etapa '6/10 Microsoft Office (demora 10-20 min)'
 $temOffice = (Test-Path "$env:ProgramFiles\Microsoft Office\root\Office16\WINWORD.EXE") -or (Test-Path "${env:ProgramFiles(x86)}\Microsoft Office\root\Office16\WINWORD.EXE") -or (Test-Path "$env:ProgramFiles\Microsoft Office\Office16\WINWORD.EXE") -or (Test-Path "${env:ProgramFiles(x86)}\Microsoft Office\Office16\WINWORD.EXE")
-if (-not $OfficeProduto) { Ok 'Office desativado no config.json - pulado' }
+if (-not $OfficeProduto) { Ok 'Office nao selecionado - pulado' }
 elseif ($temOffice) { Ok 'Office ja estava instalado' }
 elseif ($internet) {
     try {

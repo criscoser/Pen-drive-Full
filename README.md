@@ -26,8 +26,8 @@ Pendrive multiboot de manutenção baseado no [Ventoy](https://github.com/ventoy
 2. Wi-Fi: se não houver internet, lista as redes disponíveis para a pessoa escolher e digitar a senha (e pode salvar no pendrive para as próximas máquinas).
 3. Limpeza: remove apps desnecessários e propagandas, mostra extensões de arquivo.
 4. **Privacidade e otimização:** telemetria no mínimo que o Windows aceita, sem envio de dados de uso, sem Bing/Copilot/Recall, tarefas de coleta desligadas, visual mais leve, Inicialização Rápida desligada, limpeza automática e TRIM do SSD. Defender e Windows Update continuam ligados.
-5. Programas via `winget`: Chrome, 7-Zip, Adobe Reader, VLC, AnyDesk. **Pula o que já está instalado.**
-6. Microsoft 365 Apps (Office) pelo instalador oficial da Microsoft.
+5. **Você escolhe os programas** num menu no início (Chrome, Firefox, 7-Zip, Adobe Reader, VLC, AnyDesk, TeamViewer, Zoom, Teams, LibreOffice, Notepad++, Office). Instala via `winget` e **pula o que já está instalado**.
+6. Microsoft 365 Apps (Office), se marcado, pelo instalador oficial da Microsoft.
 7. Chrome como navegador padrão e fixado na barra de tarefas, sem perguntas.
 8. Drivers: Windows Update em qualquer marca; em computadores Lenovo, também drivers e BIOS pelo Lenovo System Update.
 9. Windows Update.
@@ -91,8 +91,8 @@ A definir antes da publicação. As ferramentas de terceiros (Ventoy, MemTest86,
 2. Wi-Fi: if there is no internet, lists the nearby networks so the user picks one and types the password (optionally saved on the drive for the next machines).
 3. Cleanup: removes bloatware and ads, shows file extensions.
 4. **Privacy and optimization:** telemetry at the lowest level Windows accepts, no usage data sent, no Bing/Copilot/Recall, data-collection tasks disabled, lighter visuals, Fast Startup off, automatic cleanup and SSD TRIM. Defender and Windows Update stay on.
-5. Apps via `winget`: Chrome, 7-Zip, Adobe Reader, VLC, AnyDesk. **Skips anything already installed.**
-6. Microsoft 365 Apps (Office) through Microsoft's official deployment tool.
+5. **You pick the apps** from a menu at the start (Chrome, Firefox, 7-Zip, Adobe Reader, VLC, AnyDesk, TeamViewer, Zoom, Teams, LibreOffice, Notepad++, Office). Installs via `winget` and **skips anything already installed**.
+6. Microsoft 365 Apps (Office), if selected, through Microsoft's official deployment tool.
 7. Chrome as default browser and pinned to the taskbar, with no prompts.
 8. Drivers: Windows Update on any brand; on Lenovo machines, drivers and BIOS through Lenovo System Update too.
 9. Windows Update.

@@ -5,6 +5,7 @@
 ## ✅ Feito / Done
 - Instalação automática do Windows 11 com conta local / Unattended Windows 11 install with a local account
 - Pós-formatação: Wi-Fi, limpeza, programas, Office, Chrome padrão, drivers e BIOS Lenovo / Post-install: Wi-Fi, cleanup, apps, Office, default Chrome, Lenovo drivers and BIOS
+- Menu para escolher os programas / Menu to pick the apps
 - Pula programas já instalados / Skips apps already installed
 - Chrome sem perguntas / Chrome without prompts
 - Menu do Ventoy entra no Windows instalado após 10 s / Ventoy menu boots the installed Windows after 10 s
