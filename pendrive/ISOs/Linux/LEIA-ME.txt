@@ -1,8 +1,11 @@
 Linux live (roda direto do pendrive, sem instalar, ou instala no PC):
 - Linux Mint XFCE - https://linuxmint.com/download.php
     Leve, para PCs fracos (2 GB de RAM ja roda) e para salvar arquivos de um Windows que nao liga.
-- Kali Linux Live - https://www.kali.org/get-kali/#kali-live
-    Ferramentas de seguranca e analise de rede. So use em redes e computadores seus ou com autorizacao.
+- Kali Linux (kali-linux-2026.3-installer-amd64.iso) - https://cdimage.kali.org/current/
+    INSTALA o Kali no computador (ferramentas de seguranca e analise de rede).
+    A versao Live (roda sem instalar) hoje so e distribuida por torrent: se quiser, baixe o .torrent
+    em https://www.kali.org/get-kali/#kali-live e coloque a ISO aqui.
+    So use em redes e computadores seus ou com autorizacao.
 
 Tails NAO vai aqui: o proprio Tails nao suporta rodar pelo Ventoy. Se quiser, grave num pendrive separado.
 Confira o SHA-256 das ISOs em ISOs\SHA256-OFICIAIS.txt.
