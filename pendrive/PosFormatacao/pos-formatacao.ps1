@@ -526,6 +526,23 @@ else {
     Ok 'Visual mais leve, Inicializacao Rapida desligada, limpeza automatica e TRIM do SSD ligado'
 }
 
+# Instala um programa pelo winget, tentando de novo nos erros que costumam ser passageiros
+function Instala-Winget($wg, $id) {
+    $base = @('install','--id',$id,'-e','--silent','--accept-package-agreements','--accept-source-agreements')
+    $cod = 1
+    for ($t = 1; $t -le 3; $t++) {
+        & $wg @base '--scope' 'machine' '--disable-interactivity' | Out-Null; $cod = $LASTEXITCODE
+        if ($cod -eq 0 -or $cod -eq -1978335189) { return $cod }
+        # -1978334974 = outra instalacao em andamento (ex.: Windows Update): espera e tenta de novo
+        if ($cod -eq -1978334974) { Write-Host "    outra instalacao em andamento, aguardando 30 s..."; Start-Sleep 30; continue }
+        # Qualquer outro erro: tenta uma vez no modo mais simples (sem "para todos os usuarios")
+        & $wg @base | Out-Null; $cod = $LASTEXITCODE
+        if ($cod -eq -1978334974) { Start-Sleep 30; continue }
+        return $cod
+    }
+    return $cod
+}
+
 # ---------------- 5. PROGRAMAS ----------------
 Etapa '5/10 Programas'
 if (-not $Programas.Count) { Ok 'Nenhum programa selecionado' }
@@ -556,13 +573,8 @@ if ($internet) {
         foreach ($p in $Programas) {
             if ($instalados[$p] -and -not $AtualizarProgramas) { Ok "$p ja estava instalado (pulado)"; continue }
             Write-Host "  Instalando $p ..."
-            & $winget.Source install --id $p -e --silent --scope machine --accept-package-agreements --accept-source-agreements --disable-interactivity | Out-Null
-            # -1978335216 = nao tem instalador "para todos os usuarios": tenta de novo sem isso
-            if ($LASTEXITCODE -eq -1978335216) {
-                & $winget.Source install --id $p -e --silent --accept-package-agreements --accept-source-agreements --disable-interactivity | Out-Null
-            }
-            # -1978335189 = ja instalado/sem atualizacao
-            if ($LASTEXITCODE -eq 0 -or $LASTEXITCODE -eq -1978335189) { Ok "$p instalado" } else { Falha "$p (codigo $LASTEXITCODE)" }
+            $cod = Instala-Winget $winget.Source $p
+            if ($cod -eq 0 -or $cod -eq -1978335189) { Ok "$p instalado" } else { Falha "$p (codigo $cod)" }
         }
     } else { Falha 'Instalador de programas (winget) indisponivel' }
 
@@ -735,16 +747,22 @@ try {
     $bx = Join-Path $Work 'bateria.xml'
     powercfg /batteryreport /xml /output "$bx" | Out-Null
     [xml]$x = Get-Content $bx
-    $bt = @($x.BatteryReport.Batteries.Battery)[0]
-    if ($bt -and [double]$bt.DesignCapacity -gt 0) {
-        $bat = [ordered]@{ Pct=[math]::Round(100*[double]$bt.FullChargeCapacity/[double]$bt.DesignCapacity); Original=[int]$bt.DesignCapacity; Atual=[int]$bt.FullChargeCapacity; Ciclos=[int]$bt.CycleCount; Modelo="$($bt.Manufacturer) $($bt.Id)" }
+    # Soma todas as baterias (alguns notebooks, como o ThinkPad T480, tem duas)
+    $bts = @($x.BatteryReport.Batteries.Battery | Where-Object { [double]$_.DesignCapacity -gt 0 })
+    if ($bts.Count) {
+        $orig = ($bts | ForEach-Object { [double]$_.DesignCapacity } | Measure-Object -Sum).Sum
+        $atual = ($bts | ForEach-Object { [double]$_.FullChargeCapacity } | Measure-Object -Sum).Sum
+        $bat = [ordered]@{ Pct=[math]::Round(100*$atual/$orig); Original=[int]$orig; Atual=[int]$atual
+            Ciclos=(($bts | ForEach-Object { [int]$_.CycleCount }) -join ' + ')
+            Modelo=(($bts | ForEach-Object { "$($_.Manufacturer) $($_.Id) ($([math]::Round(100*[double]$_.FullChargeCapacity/[double]$_.DesignCapacity))%)" }) -join '  |  ')
+            Qtd=$bts.Count }
     }
     powercfg /batteryreport /output "$Work\bateria.html" | Out-Null
 } catch {}
 if ($bat) {
     $st = if ($bat.Pct -ge 80) { 'ok' } elseif ($bat.Pct -ge 60) { 'atencao' } else { 'ruim' }
     $dica = if ($st -eq 'ok') { 'Autonomia boa' } elseif ($st -eq 'atencao') { 'Autonomia reduzida' } else { 'Bateria gasta - considerar troca' }
-    Card 'Bateria' "$($bat.Pct)% da original" $st "$dica ($($bat.Ciclos) ciclos)"
+    Card 'Bateria' "$($bat.Pct)% da original" $st "$dica ($($bat.Ciclos) ciclos$(if ($bat.Qtd -gt 1) { ", $($bat.Qtd) baterias" }))"
 } else { Card 'Bateria' 'Sem bateria' 'info' 'Desktop ou bateria não detectada' }
 
 # Memoria
