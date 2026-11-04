@@ -700,7 +700,7 @@ try {
 } catch {}
 
 # SSD (CrystalDiskInfo do pendrive; se faltar, usa o Windows)
-$ssd = [ordered]@{ Modelo='?'; Saude=$null; Erros=$null; Horas=$null; Gravado=$null; Temp=$null; Desligamentos=$null }
+$ssd = [ordered]@{ Modelo='?'; Serie=''; Saude=$null; Erros=$null; Horas=$null; Gravado=$null; Temp=$null; Desligamentos=$null }
 $cdiOrig = Join-Path $Pendrive 'Portateis\CrystalDiskInfo9_9_4'
 if (Test-Path "$cdiOrig\DiskInfo64.exe") {
     try {
@@ -713,6 +713,7 @@ if (Test-Path "$cdiOrig\DiskInfo64.exe") {
             Copy-Item "$cdi\DiskInfo.txt" "$Work\CrystalDiskInfo-completo.txt" -Force
             Remove-Item "$cdi\DiskInfo.txt" -Force -ErrorAction SilentlyContinue
             $l = $txt | Select-String '^\s*Model\s*:' | Select-Object -First 1; if ($l) { $ssd.Modelo = ($l.Line -split ':',2)[1].Trim() }
+            $l = $txt | Select-String '^\s*Serial Number\s*:\s*(\S+)' | Select-Object -First 1; if ($l) { $ssd.Serie = $l.Matches[0].Groups[1].Value.Trim() }
             $l = $txt | Select-String '\((\d{1,3})\s*%\)' | Select-Object -First 1; if ($l) { $ssd.Saude = [int]$l.Matches[0].Groups[1].Value }
             $l = $txt | Select-String '^\s*0E\s+([0-9A-Fa-f_]+)\s+Media and Data Integrity' | Select-Object -First 1
             if ($l) { $ssd.Erros = [Convert]::ToInt64(($l.Matches[0].Groups[1].Value -replace '_',''),16) }
@@ -729,7 +730,7 @@ if ($null -eq $ssd.Saude) {
     try {
         $pd = Get-PhysicalDisk | Select-Object -First 1
         $c = $pd | Get-StorageReliabilityCounter
-        $ssd.Modelo = $pd.FriendlyName
+        $ssd.Modelo = $pd.FriendlyName; $ssd.Serie = ([string]$pd.SerialNumber).Trim()
         if ($null -ne $c.Wear) { $ssd.Saude = 100 - [int]$c.Wear }
         $ssd.Horas = $c.PowerOnHours; $ssd.Temp = $c.Temperature
     } catch {}
@@ -739,6 +740,7 @@ if ($null -ne $ssd.Saude) {
     if ($ssd.Saude -ge 70) { $st = 'ok'; $dica = 'Vida útil boa' } elseif ($ssd.Saude -ge 30) { $st = 'atencao'; $dica = 'Desgaste médio - acompanhe' } else { $st = 'ruim'; $dica = 'Pouca vida útil - planeje a troca' }
 }
 if ($ssd.Erros -gt 0) { $st = 'ruim'; $dica = "$('{0:N0}' -f $ssd.Erros) erros de leitura/gravação - TROCAR o SSD e não guardar nada importante nele" }
+if ($ssd.Serie) { $dica = "$dica (série $($ssd.Serie))" }
 Card 'SSD' $(if ($null -ne $ssd.Saude) { "$($ssd.Saude)% de vida útil" } else { '?' }) $st $dica
 
 # Bateria
@@ -847,6 +849,7 @@ $htmlCards
 </table></section>
 <section><h2>SSD</h2><table>
 <tr><th>Modelo</th><td>$(Esc $ssd.Modelo)</td></tr>
+<tr><th>Número de série do SSD</th><td>$(Esc $ssd.Serie)</td></tr>
 <tr><th>Vida útil restante</th><td>$(N $ssd.Saude '%')</td></tr>
 <tr><th>Erros de dados (tem que ser 0)</th><td>$(N $ssd.Erros '')</td></tr>
 <tr><th>Horas ligado</th><td>$(N $ssd.Horas ' h')</td></tr>
@@ -881,7 +884,7 @@ try {
     New-Item -ItemType Directory -Force -Path $pastaDados | Out-Null
     $html | Out-File (Join-Path $pasta $arqRel) -Encoding utf8
     [pscustomobject]@{
-        Nome=$novoNome; Modelo="$($prod.Version)"; Serie=$serie; Data=(Get-Date -Format 'dd/MM/yyyy HH:mm'); Geral=$geral; GeralTxt=$geralTxt
+        Nome=$novoNome; Modelo="$($prod.Version)"; Serie=$serie; SerieSSD=$ssd.Serie; Data=(Get-Date -Format 'dd/MM/yyyy HH:mm'); Geral=$geral; GeralTxt=$geralTxt
         Cards=$cards.ToArray(); Arquivo=$arqRel
     } | ConvertTo-Json -Depth 5 | Out-File (Join-Path $pastaDados "$novoNome.json") -Encoding utf8
 
@@ -893,7 +896,7 @@ try {
         $m = $_
         $cel = ($colunas | ForEach-Object { $n = $_; $c = @($m.Cards) | Where-Object { $_.Nome -eq $n } | Select-Object -First 1
             if ($c) { "<td><span class='dot' style='background:$($cor[$c.Status])'></span>$(Esc $c.Valor)</td>" } else { '<td>-</td>' } }) -join ''
-        "<tr><td><a href='$(Esc $m.Arquivo)'><b>$(Esc $m.Nome)</b></a><div class='s'>$(Esc $m.Modelo) &middot; $(Esc $m.Data)</div></td><td><span class='v' style='background:$($cor[$m.Geral])'>$(Esc $m.GeralTxt)</span></td>$cel</tr>"
+        "<tr><td><a href='$(Esc $m.Arquivo)'><b>$(Esc $m.Nome)</b></a><div class='s'>$(Esc $m.Modelo) &middot; $(Esc $m.Data)$(if ($m.SerieSSD) { "<br>SSD: $(Esc $m.SerieSSD)" })</div></td><td><span class='v' style='background:$($cor[$m.Geral])'>$(Esc $m.GeralTxt)</span></td>$cel</tr>"
     }) -join "`n"
     @"
 <!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Resumo das máquinas</title>
