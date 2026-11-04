@@ -58,7 +58,22 @@ Start-Transcript -Path (Join-Path $Work 'log.txt') -Append | Out-Null
 $Host.UI.RawUI.WindowTitle = 'POS-FORMATACAO - nao feche esta janela'
 $resumo = New-Object System.Collections.Generic.List[string]
 
-function Etapa($t) { Write-Host "`n===== $t =====" -ForegroundColor Cyan }
+$tempos = New-Object System.Collections.Generic.List[object]
+$relogio = [System.Diagnostics.Stopwatch]::StartNew()
+$etapaAtual = $null; $inicioEtapa = $relogio.Elapsed
+function Fecha-Etapa {
+    if ($script:etapaAtual) {
+        $seg = [int]($relogio.Elapsed - $script:inicioEtapa).TotalSeconds
+        $script:tempos.Add([pscustomobject]@{ Etapa = $script:etapaAtual; Segundos = $seg })
+        Write-Host ("  (levou {0}:{1:00})" -f [int][math]::Floor($seg/60), ($seg % 60)) -ForegroundColor DarkGray
+    }
+    $script:etapaAtual = $null
+}
+function Etapa($t) {
+    Fecha-Etapa
+    $script:etapaAtual = $t; $script:inicioEtapa = $relogio.Elapsed
+    Write-Host "`n===== $t =====" -ForegroundColor Cyan
+}
 function Ok($t)    { Write-Host "  [OK] $t" -ForegroundColor Green; $resumo.Add("[OK]    $t") }
 function Falha($t) { Write-Host "  [FALHA] $t" -ForegroundColor Yellow; $resumo.Add("[FALHA] $t") }
 
@@ -76,84 +91,7 @@ function Tem-Internet {
     try { (Invoke-WebRequest 'http://www.msftconnecttest.com/connecttest.txt' -UseBasicParsing -TimeoutSec 5).Content -like 'Microsoft Connect Test*' } catch { $false }
 }
 
-function Ler-ComTempo($pergunta, $segundos) {
-    # Le uma resposta; se ninguem digitar nada em $segundos, devolve $null
-    Write-Host -NoNewline $pergunta
-    $txt = ''; $fim = (Get-Date).AddSeconds($segundos)
-    try {
-        while ((Get-Date) -lt $fim) {
-            if ([Console]::KeyAvailable) {
-                $k = [Console]::ReadKey($true)
-                if ($k.Key -eq 'Enter') { Write-Host ''; return $txt }
-                if ($k.Key -eq 'Backspace') { if ($txt.Length) { $txt = $txt.Substring(0, $txt.Length-1); Write-Host -NoNewline "`b `b" } ; continue }
-                $txt += $k.KeyChar; Write-Host -NoNewline $k.KeyChar
-                $fim = (Get-Date).AddSeconds($segundos)
-            } else { Start-Sleep -Milliseconds 200 }
-        }
-    } catch { Write-Host ''; return (Read-Host) }
-    Write-Host ''; return $null
-}
-Write-Host "POS-FORMATACAO iniciado em $(Get-Date). Pode levar de 30 a 60 minutos." -ForegroundColor White
-Write-Host "Deixe o carregador LIGADO e nao feche esta janela." -ForegroundColor White
-Write-Host "Se o notebook reiniciar sozinho e abrir o menu do Ventoy, NAO escolha nada: ele entra no Windows em 10 s." -ForegroundColor Yellow
-
-if (-not $SoRelatorio) {
-
-# ---------------- ESCOLHA DOS PROGRAMAS ----------------
-$Catalogo = @(
-    [pscustomobject]@{ Nome='Google Chrome';           Id='Google.Chrome' },
-    [pscustomobject]@{ Nome='Mozilla Firefox';         Id='Mozilla.Firefox' },
-    [pscustomobject]@{ Nome='7-Zip';                   Id='7zip.7zip' },
-    [pscustomobject]@{ Nome='Adobe Acrobat Reader';    Id='Adobe.Acrobat.Reader.64-bit' },
-    [pscustomobject]@{ Nome='VLC (videos e musicas)';  Id='VideoLAN.VLC' },
-    [pscustomobject]@{ Nome='AnyDesk (acesso remoto)'; Id='AnyDesk.AnyDesk' },
-    [pscustomobject]@{ Nome='TeamViewer (acesso remoto)'; Id='TeamViewer.TeamViewer' },
-    [pscustomobject]@{ Nome='Zoom';                    Id='Zoom.Zoom' },
-    [pscustomobject]@{ Nome='Microsoft Teams';         Id='Microsoft.Teams' },
-    [pscustomobject]@{ Nome='LibreOffice (gratuito)';  Id='TheDocumentFoundation.LibreOffice' },
-    [pscustomobject]@{ Nome='Notepad++';               Id='Notepad++.Notepad++' },
-    [pscustomobject]@{ Nome='Microsoft 365 (Office)';  Id='OFFICE' }
-)
-foreach ($p in $Programas) { if (-not ($Catalogo.Id -contains $p)) { $Catalogo += [pscustomobject]@{ Nome=$p; Id=$p } } }
-$marcado = @{}
-foreach ($c in $Catalogo) { $marcado[$c.Id] = ($Programas -contains $c.Id) -or ($c.Id -eq 'OFFICE' -and $OfficeProduto) }
-if ($PerguntarProgramas) {
-    $tempo = 60
-    while ($true) {
-        Write-Host ''
-        Write-Host '  PROGRAMAS PARA INSTALAR   ([X] = vai instalar)' -ForegroundColor Cyan
-        for ($i = 0; $i -lt $Catalogo.Count; $i++) {
-            $c = $Catalogo[$i]
-            if ($marcado[$c.Id]) { Write-Host ("   [X] {0,2}) {1}" -f ($i+1), $c.Nome) -ForegroundColor Green }
-            else { Write-Host ("   [ ] {0,2}) {1}" -f ($i+1), $c.Nome) -ForegroundColor DarkGray }
-        }
-        Write-Host '  Digite os numeros para marcar/desmarcar (ex.: 6 9). T = todos, N = nenhum.'
-        $r = Ler-ComTempo "  ENTER sozinho = confirmar ($tempo s sem resposta = instala os marcados): " $tempo
-        if ($null -eq $r -or $r.Trim() -eq '') { break }
-        $r = $r.Trim().ToUpper()
-        if ($r -eq 'T') { foreach ($c in $Catalogo) { $marcado[$c.Id] = $true }; continue }
-        if ($r -eq 'N') { foreach ($c in $Catalogo) { $marcado[$c.Id] = $false }; continue }
-        foreach ($n in ($r -split '[\s,;]+')) {
-            if ($n -match '^\d+$' -and [int]$n -ge 1 -and [int]$n -le $Catalogo.Count) { $id = $Catalogo[[int]$n-1].Id; $marcado[$id] = -not $marcado[$id] }
-        }
-    }
-}
-$Programas = @($Catalogo | Where-Object { $marcado[$_.Id] -and $_.Id -ne 'OFFICE' } | ForEach-Object { $_.Id })
-if (-not $marcado['OFFICE']) { $OfficeProduto = '' } elseif (-not $OfficeProduto) { $OfficeProduto = 'O365BusinessRetail' }
-Write-Host ("  Vai instalar: " + $(if ($Programas.Count -or $OfficeProduto) { (@($Catalogo | Where-Object { $marcado[$_.Id] } | ForEach-Object { $_.Nome }) -join ', ') } else { 'nenhum programa' })) -ForegroundColor Green
-
-# ---------------- 1. ENERGIA ----------------
-Etapa '1/10 Energia'
-powercfg /change standby-timeout-ac 0 | Out-Null
-powercfg /change hibernate-timeout-ac 0 | Out-Null
-powercfg /change monitor-timeout-ac 15 | Out-Null
-Ok 'Na tomada o notebook nao dorme (tela apaga em 15 min)'
-$naTomada = $true
-try { $b = Get-CimInstance Win32_Battery -ErrorAction Stop; if ($b -and $b.BatteryStatus -eq 1) { $naTomada = $false } } catch {}
-if (-not $naTomada) { Write-Host '  ATENCAO: o notebook esta na BATERIA. Ligue o carregador.' -ForegroundColor Red }
-
-# ---------------- 2. WI-FI ----------------
-Etapa '2/10 Wi-Fi'
+# ---------------- FUNCOES DE WI-FI ----------------
 function Novo-PerfilWifi($ssid, $senha) {
     $hex = -join ($ssid.ToCharArray() | ForEach-Object { '{0:X2}' -f [int]$_ })
     $esc = [System.Security.SecurityElement]::Escape($ssid)
@@ -182,58 +120,230 @@ function Salvar-WifiNoConfig($ssid, $senha) {
         Write-Host "  Rede salva no pendrive (PosFormatacao\config.json)." -ForegroundColor Green
     } catch { Write-Host "  (aviso) nao foi possivel salvar no pendrive" -ForegroundColor DarkYellow }
 }
-
-$internet = Tem-Internet
-if ($internet) {
-    Ok 'Internet ja funcionando (cabo ou Wi-Fi ja conectado)'
-} elseif ($WifiNome) {
-    Novo-PerfilWifi $WifiNome $WifiSenha
-    Write-Host "  Conectando em $WifiNome (ate 2 minutos)..."
-    $internet = Espera-Internet 120
-    if ($internet) { Ok "Rede $WifiNome configurada e internet funcionando" }
+function Lista-RedesWifi {
+    try {
+        return @(netsh wlan show networks | Select-String '^\s*SSID\s+\d+\s*:\s*(.+)$' | ForEach-Object { $_.Matches[0].Groups[1].Value.Trim() } | Where-Object { $_ } | Select-Object -Unique)
+    } catch { return @() }
 }
-if (-not $internet -and -not $SoRelatorio) {
-    Write-Host ''
-    Write-Host '  Sem internet. Vamos conectar no Wi-Fi.' -ForegroundColor Yellow
-    for ($tentativa = 1; $tentativa -le 3 -and -not $internet; $tentativa++) {
-        $redes = @()
-        try {
-            netsh wlan disconnect | Out-Null
-            Start-Sleep 3
-            $redes = @(netsh wlan show networks mode=bssid | Select-String '^\s*SSID\s+\d+\s*:\s*(.+)$' | ForEach-Object { $_.Matches[0].Groups[1].Value.Trim() } | Where-Object { $_ } | Select-Object -Unique)
-        } catch {}
-        if ($redes.Count) {
-            Write-Host '  Redes encontradas:'
-            for ($i = 0; $i -lt $redes.Count; $i++) { Write-Host ("    {0,2}) {1}" -f ($i+1), $redes[$i]) }
-            Write-Host '     D) Digitar o nome da rede (rede oculta)'
-        } else {
-            Write-Host '  Nao consegui listar as redes. Digite o nome da rede.'
-        }
-        Write-Host '     0) Pular (vou usar cabo / sem internet)'
-        $resp = Ler-ComTempo '  Escolha e aperte ENTER (60 s para pular): ' 60
-        if ($null -eq $resp -or $resp -eq '0') { break }
-        $ssid = $null
-        if ($resp -match '^\d+$' -and [int]$resp -ge 1 -and [int]$resp -le $redes.Count) { $ssid = $redes[[int]$resp-1] }
-        elseif ($resp -match '^[Dd]$' -or -not $redes.Count) { $ssid = if ($redes.Count) { Read-Host '  Nome da rede' } else { $resp } }
-        else { $ssid = $resp }
-        if (-not $ssid) { continue }
-        $sec = Read-Host "  Senha de $ssid (ENTER se for rede aberta)" -AsSecureString
-        $senha = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
-        Novo-PerfilWifi $ssid $senha
-        Write-Host "  Conectando em $ssid..."
-        $internet = Espera-Internet 40
-        if ($internet) {
-            Ok "Rede $ssid configurada e internet funcionando"
-            $s = Ler-ComTempo '  Salvar esta rede no pendrive para as proximas maquinas? (S/N): ' 30
-            if ($s -match '^[Ss]') { Salvar-WifiNoConfig $ssid $senha }
-        } else {
-            Write-Host '  Nao conectou. Confira a senha e tente de novo.' -ForegroundColor Yellow
-            netsh wlan delete profile name="$ssid" | Out-Null
-        }
-        $senha = $null
+
+# ---------------- JANELA INICIAL (uma vez so, depois e tudo automatico) ----------------
+function Mostra-JanelaInicial($catalogo, $marcado, $precisaWifi, $redes, $otimizar, $segundos) {
+    Add-Type -AssemblyName System.Windows.Forms
+    Add-Type -AssemblyName System.Drawing
+    [System.Windows.Forms.Application]::EnableVisualStyles()
+    $azul = [System.Drawing.Color]::FromArgb(31,41,51)
+    $f = New-Object System.Windows.Forms.Form
+    $f.Text = 'Pós-formatação'
+    $f.StartPosition = 'CenterScreen'
+    $f.FormBorderStyle = 'FixedDialog'
+    $f.MaximizeBox = $false; $f.MinimizeBox = $false; $f.TopMost = $true
+    $f.AutoScaleMode = 'Dpi'
+    $f.Font = New-Object System.Drawing.Font('Segoe UI', 10)
+    $f.BackColor = [System.Drawing.Color]::White
+    $w = 440
+    $y = 16
+    $t = New-Object System.Windows.Forms.Label
+    $t.Text = 'Escolha o que fazer nesta máquina'
+    $t.Font = New-Object System.Drawing.Font('Segoe UI', 14, [System.Drawing.FontStyle]::Bold)
+    $t.ForeColor = $azul; $t.AutoSize = $true; $t.Location = New-Object System.Drawing.Point(20, $y)
+    $f.Controls.Add($t); $y += 40
+    $st = New-Object System.Windows.Forms.Label
+    $st.Text = 'Depois de clicar em Começar, o resto é automático.'
+    $st.ForeColor = [System.Drawing.Color]::DimGray; $st.AutoSize = $true; $st.Location = New-Object System.Drawing.Point(22, $y)
+    $f.Controls.Add($st); $y += 34
+
+    $cbRede = $null; $txtSenha = $null; $chkSalvar = $null
+    if ($precisaWifi) {
+        $l = New-Object System.Windows.Forms.Label
+        $l.Text = 'Wi-Fi  (sem internet agora — escolha a rede)'; $l.Font = New-Object System.Drawing.Font('Segoe UI', 10, [System.Drawing.FontStyle]::Bold)
+        $l.AutoSize = $true; $l.Location = New-Object System.Drawing.Point(20, $y); $f.Controls.Add($l); $y += 26
+        $cbRede = New-Object System.Windows.Forms.ComboBox
+        $cbRede.DropDownStyle = 'DropDown'; $cbRede.Width = $w - 20; $cbRede.Location = New-Object System.Drawing.Point(22, $y)
+        foreach ($r in $redes) { [void]$cbRede.Items.Add($r) }
+        if ($redes.Count) { $cbRede.SelectedIndex = 0 }
+        $f.Controls.Add($cbRede); $y += 34
+        $ls = New-Object System.Windows.Forms.Label
+        $ls.Text = 'Senha (deixe vazio se a rede for aberta)'; $ls.AutoSize = $true; $ls.Location = New-Object System.Drawing.Point(20, $y); $f.Controls.Add($ls); $y += 22
+        $txtSenha = New-Object System.Windows.Forms.TextBox
+        $txtSenha.UseSystemPasswordChar = $true; $txtSenha.Width = $w - 20; $txtSenha.Location = New-Object System.Drawing.Point(22, $y)
+        $f.Controls.Add($txtSenha); $y += 32
+        $chkSalvar = New-Object System.Windows.Forms.CheckBox
+        $chkSalvar.Text = 'Salvar esta rede no pendrive para as próximas máquinas'; $chkSalvar.AutoSize = $true
+        $chkSalvar.Location = New-Object System.Drawing.Point(22, $y); $f.Controls.Add($chkSalvar); $y += 36
+    }
+
+    $lp = New-Object System.Windows.Forms.Label
+    $lp.Text = 'Programas para instalar'; $lp.Font = New-Object System.Drawing.Font('Segoe UI', 10, [System.Drawing.FontStyle]::Bold)
+    $lp.AutoSize = $true; $lp.Location = New-Object System.Drawing.Point(20, $y); $f.Controls.Add($lp)
+    $lkTodos = New-Object System.Windows.Forms.LinkLabel; $lkTodos.Text = 'Todos'; $lkTodos.AutoSize = $true
+    $lkTodos.Location = New-Object System.Drawing.Point(($w - 85), $y); $f.Controls.Add($lkTodos)
+    $lkNenhum = New-Object System.Windows.Forms.LinkLabel; $lkNenhum.Text = 'Nenhum'; $lkNenhum.AutoSize = $true
+    $lkNenhum.Location = New-Object System.Drawing.Point(($w - 35), $y); $f.Controls.Add($lkNenhum); $y += 26
+    $lst = New-Object System.Windows.Forms.CheckedListBox
+    $lst.CheckOnClick = $true; $lst.BorderStyle = 'FixedSingle'; $lst.IntegralHeight = $false
+    $lst.Width = $w - 20; $lst.Height = [Math]::Min(26 * $catalogo.Count + 6, 330); $lst.Location = New-Object System.Drawing.Point(22, $y)
+    for ($i = 0; $i -lt $catalogo.Count; $i++) { [void]$lst.Items.Add($catalogo[$i].Nome, [bool]$marcado[$catalogo[$i].Id]) }
+    $f.Controls.Add($lst); $y += $lst.Height + 12
+
+    $chkOt = New-Object System.Windows.Forms.CheckBox
+    $chkOt.Text = 'Privacidade e otimização do Windows (recomendado)'; $chkOt.Checked = [bool]$otimizar; $chkOt.AutoSize = $true
+    $chkOt.Location = New-Object System.Drawing.Point(22, $y); $f.Controls.Add($chkOt); $y += 40
+
+    $lt = New-Object System.Windows.Forms.Label
+    $lt.AutoSize = $true; $lt.ForeColor = [System.Drawing.Color]::DimGray; $lt.Location = New-Object System.Drawing.Point(20, ($y + 8)); $f.Controls.Add($lt)
+    $bC = New-Object System.Windows.Forms.Button
+    $bC.Text = 'Começar'; $bC.Width = 120; $bC.Height = 36; $bC.Location = New-Object System.Drawing.Point(($w - 120 + 2), $y)
+    $bC.BackColor = [System.Drawing.Color]::FromArgb(31,157,85); $bC.ForeColor = [System.Drawing.Color]::White; $bC.FlatStyle = 'Flat'
+    $bC.DialogResult = [System.Windows.Forms.DialogResult]::OK; $f.Controls.Add($bC); $f.AcceptButton = $bC
+    $bX = New-Object System.Windows.Forms.Button
+    $bX.Text = 'Cancelar'; $bX.Width = 100; $bX.Height = 36; $bX.Location = New-Object System.Drawing.Point(($w - 230 + 2), $y)
+    $bX.DialogResult = [System.Windows.Forms.DialogResult]::Cancel; $f.Controls.Add($bX); $f.CancelButton = $bX
+    $y += 52
+    $f.ClientSize = New-Object System.Drawing.Size(($w + 24), $y)
+
+    # Contagem regressiva: se ninguem mexer, comeca sozinho (para a instalacao automatica nao travar)
+    $estado = @{ Resta = $segundos }
+    $lt.Text = "Começa sozinho em $segundos s"
+    $timer = New-Object System.Windows.Forms.Timer
+    $timer.Interval = 1000
+    $timer.Add_Tick({
+        $estado.Resta--
+        $lt.Text = "Começa sozinho em $($estado.Resta) s"
+        if ($estado.Resta -le 0) { $timer.Stop(); $f.DialogResult = [System.Windows.Forms.DialogResult]::OK; $f.Close() }
+    })
+    $parar = { if ($timer.Enabled) { $timer.Stop(); $lt.Text = 'Clique em Começar quando terminar.' } }
+    $lst.Add_ItemCheck($parar); $chkOt.Add_Click($parar)
+    $lkTodos.Add_LinkClicked({ & $parar; for ($i = 0; $i -lt $lst.Items.Count; $i++) { $lst.SetItemChecked($i, $true) } })
+    $lkNenhum.Add_LinkClicked({ & $parar; for ($i = 0; $i -lt $lst.Items.Count; $i++) { $lst.SetItemChecked($i, $false) } })
+    if ($cbRede) { $cbRede.Add_TextChanged($parar); $txtSenha.Add_TextChanged($parar); $chkSalvar.Add_Click($parar) }
+    $f.Add_Shown({ $f.Activate(); $timer.Start() })
+    $r = $f.ShowDialog()
+    $timer.Stop()
+    $sel = @{}
+    for ($i = 0; $i -lt $catalogo.Count; $i++) { $sel[$catalogo[$i].Id] = $lst.GetItemChecked($i) }
+    $res = [pscustomobject]@{
+        Ok       = ($r -eq [System.Windows.Forms.DialogResult]::OK)
+        Marcado  = $sel
+        Otimizar = $chkOt.Checked
+        Ssid     = $(if ($cbRede) { $cbRede.Text.Trim() } else { '' })
+        Senha    = $(if ($txtSenha) { $txtSenha.Text } else { '' })
+        Salvar   = $(if ($chkSalvar) { $chkSalvar.Checked } else { $false })
+    }
+    $f.Dispose()
+    return $res
+}
+
+Write-Host "POS-FORMATACAO iniciado em $(Get-Date)." -ForegroundColor White
+Write-Host "Deixe o carregador LIGADO e nao feche esta janela." -ForegroundColor White
+Write-Host "Se o notebook reiniciar sozinho e abrir o menu do Ventoy, NAO escolha nada: ele entra no Windows em 10 s." -ForegroundColor Yellow
+
+if (-not $SoRelatorio) {
+
+# ---------------- CATALOGO DE PROGRAMAS ----------------
+# Reg = nome como aparece em "Aplicativos instalados" (para saber se ja existe sem perguntar ao winget)
+$Catalogo = @(
+    [pscustomobject]@{ Nome='Google Chrome';              Id='Google.Chrome';                     Reg='^Google Chrome$' },
+    [pscustomobject]@{ Nome='Mozilla Firefox';            Id='Mozilla.Firefox';                   Reg='^Mozilla Firefox' },
+    [pscustomobject]@{ Nome='7-Zip';                      Id='7zip.7zip';                         Reg='^7-Zip' },
+    [pscustomobject]@{ Nome='Adobe Acrobat Reader';       Id='Adobe.Acrobat.Reader.64-bit';       Reg='^Adobe Acrobat' },
+    [pscustomobject]@{ Nome='VLC (vídeos e músicas)';     Id='VideoLAN.VLC';                      Reg='^VLC media player' },
+    [pscustomobject]@{ Nome='AnyDesk (acesso remoto)';    Id='AnyDesk.AnyDesk';                   Reg='^AnyDesk' },
+    [pscustomobject]@{ Nome='TeamViewer (acesso remoto)'; Id='TeamViewer.TeamViewer';             Reg='^TeamViewer' },
+    [pscustomobject]@{ Nome='Zoom';                       Id='Zoom.Zoom';                         Reg='^Zoom' },
+    [pscustomobject]@{ Nome='Microsoft Teams';            Id='Microsoft.Teams';                   Reg='APPX:MSTeams' },
+    [pscustomobject]@{ Nome='LibreOffice (gratuito)';     Id='TheDocumentFoundation.LibreOffice'; Reg='^LibreOffice' },
+    [pscustomobject]@{ Nome='Notepad++';                  Id='Notepad++.Notepad++';               Reg='^Notepad\+\+' },
+    [pscustomobject]@{ Nome='Microsoft 365 (Office)';     Id='OFFICE';                            Reg='' }
+)
+foreach ($p in $Programas) { if (-not ($Catalogo.Id -contains $p)) { $Catalogo += [pscustomobject]@{ Nome=$p; Id=$p; Reg='' } } }
+$marcado = @{}
+foreach ($c in $Catalogo) { $marcado[$c.Id] = ($Programas -contains $c.Id) -or ($c.Id -eq 'OFFICE' -and [bool]$OfficeProduto) }
+
+# Internet agora? Se nao, tenta a rede salva no pendrive antes de abrir a janela
+$internet = Tem-Internet
+if (-not $internet -and $WifiNome) {
+    Write-Host "  Conectando na rede salva ($WifiNome)..."
+    Novo-PerfilWifi $WifiNome $WifiSenha
+    $internet = Espera-Internet 30
+}
+
+$escolha = $null
+if ($PerguntarProgramas) {
+    try {
+        Write-Host '  Abrindo a janela de escolha...'
+        $redes = if (-not $internet) { Lista-RedesWifi } else { @() }
+        $escolha = Mostra-JanelaInicial $Catalogo $marcado (-not $internet) $redes $Otimizar 60
+    } catch {
+        Write-Host "  (aviso) nao foi possivel abrir a janela - usando as escolhas padrao: $($_.Exception.Message)" -ForegroundColor DarkYellow
+    }
+    if ($escolha -and -not $escolha.Ok) {
+        Write-Host '  Cancelado. Nada foi alterado nesta maquina.' -ForegroundColor Yellow
+        Stop-Transcript | Out-Null
+        Start-Sleep 3
+        exit
+    }
+}
+if ($escolha) { $marcado = $escolha.Marcado; $Otimizar = $escolha.Otimizar }
+$Programas = @($Catalogo | Where-Object { $marcado[$_.Id] -and $_.Id -ne 'OFFICE' } | ForEach-Object { $_.Id })
+if (-not $marcado['OFFICE']) { $OfficeProduto = '' } elseif (-not $OfficeProduto) { $OfficeProduto = 'O365BusinessRetail' }
+Write-Host ("  Vai instalar: " + $(if ($Programas.Count -or $OfficeProduto) { (@($Catalogo | Where-Object { $marcado[$_.Id] } | ForEach-Object { $_.Nome }) -join ', ') } else { 'nenhum programa' })) -ForegroundColor Green
+Write-Host '  A partir daqui e tudo automatico.' -ForegroundColor Green
+
+# ---------------- 1. ENERGIA ----------------
+Etapa '1/10 Energia'
+powercfg /change standby-timeout-ac 0 | Out-Null
+powercfg /change hibernate-timeout-ac 0 | Out-Null
+powercfg /change monitor-timeout-ac 15 | Out-Null
+Ok 'Na tomada o notebook nao dorme (tela apaga em 15 min)'
+$naTomada = $true
+try { $b = Get-CimInstance Win32_Battery -ErrorAction Stop; if ($b -and $b.BatteryStatus -eq 1) { $naTomada = $false } } catch {}
+if (-not $naTomada) { Write-Host '  ATENCAO: o notebook esta na BATERIA. Ligue o carregador.' -ForegroundColor Red }
+
+# ---------------- 2. WI-FI ----------------
+Etapa '2/10 Internet'
+if ($internet) {
+    Ok $(if ($WifiNome -and -not $escolha.Ssid) { "Internet funcionando (rede $WifiNome)" } else { 'Internet funcionando' })
+} elseif ($escolha -and $escolha.Ssid) {
+    Write-Host "  Conectando em $($escolha.Ssid)..."
+    Novo-PerfilWifi $escolha.Ssid $escolha.Senha
+    $internet = Espera-Internet 45
+    if ($internet) {
+        Ok "Rede $($escolha.Ssid) configurada e internet funcionando"
+        if ($escolha.Salvar) { Salvar-WifiNoConfig $escolha.Ssid $escolha.Senha }
+    } else {
+        netsh wlan delete profile name="$($escolha.Ssid)" | Out-Null
     }
 }
 if (-not $internet) { Falha "Sem internet. Programas, drivers e Office nao serao instalados agora. Conecte e rode o script de novo." }
+
+# Office baixa e instala em segundo plano enquanto as outras etapas rodam (economiza 10-20 min)
+$procOffice = $null
+$temOffice = (Test-Path "$env:ProgramFiles\Microsoft Office\root\Office16\WINWORD.EXE") -or (Test-Path "${env:ProgramFiles(x86)}\Microsoft Office\root\Office16\WINWORD.EXE") -or (Test-Path "$env:ProgramFiles\Microsoft Office\Office16\WINWORD.EXE") -or (Test-Path "${env:ProgramFiles(x86)}\Microsoft Office\Office16\WINWORD.EXE")
+if ($OfficeProduto -and -not $temOffice -and $internet) {
+    try {
+        $odt = Join-Path $Work 'office'
+        New-Item -ItemType Directory -Force -Path $odt | Out-Null
+        Invoke-WebRequest 'https://officecdn.microsoft.com/pr/wsus/setup.exe' -OutFile "$odt\setup.exe" -UseBasicParsing
+        @"
+<Configuration>
+  <Add OfficeClientEdition="64" Channel="Current">
+    <Product ID="$OfficeProduto">
+      <Language ID="pt-br" />
+      <ExcludeApp ID="Groove" />
+      <ExcludeApp ID="Lync" />
+      <ExcludeApp ID="Bing" />
+      <ExcludeApp ID="Teams" />
+    </Product>
+  </Add>
+  <Updates Enabled="TRUE" />
+  <RemoveMSI />
+  <Display Level="None" AcceptEULA="TRUE" />
+</Configuration>
+"@ | Out-File "$odt\config.xml" -Encoding utf8
+        $procOffice = Start-Process "$odt\setup.exe" -ArgumentList "/configure `"$odt\config.xml`"" -PassThru
+        Write-Host '  Office comecou a baixar em segundo plano.' -ForegroundColor Green
+    } catch { Falha "Office: $($_.Exception.Message)" }
+}
 
 # ---------------- 3. LIMPEZA DO WINDOWS ----------------
 Etapa '3/10 Limpeza do Windows'
@@ -248,11 +358,14 @@ $lixo = @(
     '*CandyCrush*','*Spotify*','*Disney*','*TikTok*','*Instagram*','*Facebook*'
 )
 $removidos = 0
+# Lista tudo uma vez so (consultar o Windows a cada app era o que deixava esta etapa lenta)
+$todosApps = @(Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue)
+$provisionados = @(Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue)
 foreach ($n in $lixo) {
-    Get-AppxPackage -AllUsers -Name $n -ErrorAction SilentlyContinue | ForEach-Object {
+    $todosApps | Where-Object { $_.Name -like $n } | ForEach-Object {
         try { Remove-AppxPackage -Package $_.PackageFullName -AllUsers -ErrorAction Stop; $removidos++ } catch {}
     }
-    Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like $n } | ForEach-Object {
+    $provisionados | Where-Object { $_.DisplayName -like $n } | ForEach-Object {
         try { Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName -ErrorAction Stop | Out-Null } catch {}
     }
 }
@@ -403,17 +516,14 @@ else {
     Set-Reg $ss 'ConfigStorageSenseRecycleBinCleanupThreshold' 30
     Set-Reg $ss 'ConfigStorageSenseDownloadsCleanupThreshold' 0
     # SSD: garante TRIM ligado e otimiza; HD: desfragmentacao continua agendada pelo Windows
+    # (a otimizacao semanal do Windows faz o resto; rodar agora so atrasava a pos-formatacao)
     fsutil behavior set DisableDeleteNotify 0 | Out-Null
-    try {
-        $tipo = (Get-PhysicalDisk | Where-Object { $_.DeviceId -eq ((Get-Partition -DriveLetter C | Get-Disk).Number) }).MediaType
-        if ($tipo -eq 'SSD') { Optimize-Volume -DriveLetter C -ReTrim -ErrorAction SilentlyContinue | Out-Null }
-    } catch {}
     # Limpa temporarios da instalacao
     Remove-Item "$env:TEMP\*" -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item "$env:WINDIR\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue
 
     Ok "Telemetria no minimo, sem propaganda/Bing/Copilot/Recall, $nt tarefas de coleta desligadas"
-    Ok 'Visual mais leve, Inicializacao Rapida desligada, limpeza automatica e TRIM do SSD'
+    Ok 'Visual mais leve, Inicializacao Rapida desligada, limpeza automatica e TRIM do SSD ligado'
 }
 
 # ---------------- 5. PROGRAMAS ----------------
@@ -431,22 +541,24 @@ if ($internet) {
         if ($w) { $winget = Get-Command $w.FullName }
     }
     if ($winget) {
-        & $winget.Source source update | Out-Null
-        # Verifica antes o que ja esta instalado (qualquer que seja a origem)
+        # Verifica antes o que ja esta instalado, lendo a lista de programas do Windows (rapido)
+        $regNomes = @(foreach ($k in 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*','HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*','HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*') {
+            Get-ItemProperty $k -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName } | ForEach-Object { $_.DisplayName } })
+        $appxNomes = @(Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })
         $instalados = @{}
         foreach ($p in $Programas) {
-            & $winget.Source list --id $p -e --accept-source-agreements --disable-interactivity | Out-Null
-            $instalados[$p] = ($LASTEXITCODE -eq 0)
+            $c = $Catalogo | Where-Object { $_.Id -eq $p } | Select-Object -First 1
+            if ($c -and $c.Reg -like 'APPX:*') { $instalados[$p] = [bool]($appxNomes -contains $c.Reg.Substring(5)) }
+            elseif ($c -and $c.Reg) { $instalados[$p] = [bool]($regNomes | Where-Object { $_ -match $c.Reg } | Select-Object -First 1) }
+            else { & $winget.Source list --id $p -e --accept-source-agreements --disable-interactivity | Out-Null; $instalados[$p] = ($LASTEXITCODE -eq 0) }
         }
-        if (Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe") { $instalados['Google.Chrome'] = $true }
-        if ((Test-Path "$env:ProgramFiles\AnyDesk\AnyDesk.exe") -or (Test-Path "${env:ProgramFiles(x86)}\AnyDesk\AnyDesk.exe")) { $instalados['AnyDesk.AnyDesk'] = $true }
-        Write-Host '  Situacao antes de instalar:'
         foreach ($p in $Programas) { if ($instalados[$p]) { Write-Host "    [ja instalado] $p" -ForegroundColor Green } else { Write-Host "    [vai baixar]   $p" -ForegroundColor Yellow } }
         foreach ($p in $Programas) {
             if ($instalados[$p] -and -not $AtualizarProgramas) { Ok "$p ja estava instalado (pulado)"; continue }
             Write-Host "  Instalando $p ..."
             & $winget.Source install --id $p -e --silent --scope machine --accept-package-agreements --accept-source-agreements --disable-interactivity | Out-Null
-            if ($LASTEXITCODE -ne 0) {
+            # -1978335216 = nao tem instalador "para todos os usuarios": tenta de novo sem isso
+            if ($LASTEXITCODE -eq -1978335216) {
                 & $winget.Source install --id $p -e --silent --accept-package-agreements --accept-source-agreements --disable-interactivity | Out-Null
             }
             # -1978335189 = ja instalado/sem atualizacao
@@ -454,8 +566,8 @@ if ($internet) {
         }
     } else { Falha 'Instalador de programas (winget) indisponivel' }
 
-    # Garante o Chrome mesmo se o winget falhar
-    if (-not (Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe")) {
+    # Garante o Chrome (se foi escolhido) mesmo se o winget falhar
+    if (($Programas -contains 'Google.Chrome') -and -not (Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe")) {
         try {
             $msi = Join-Path $Work 'chrome.msi'
             Invoke-WebRequest 'https://dl.google.com/chrome/install/googlechromestandaloneenterprise64.msi' -OutFile $msi -UseBasicParsing
@@ -467,36 +579,16 @@ if ($internet) {
 }
 
 # ---------------- 5. OFFICE ----------------
-Etapa '6/10 Microsoft Office (demora 10-20 min)'
-$temOffice = (Test-Path "$env:ProgramFiles\Microsoft Office\root\Office16\WINWORD.EXE") -or (Test-Path "${env:ProgramFiles(x86)}\Microsoft Office\root\Office16\WINWORD.EXE") -or (Test-Path "$env:ProgramFiles\Microsoft Office\Office16\WINWORD.EXE") -or (Test-Path "${env:ProgramFiles(x86)}\Microsoft Office\Office16\WINWORD.EXE")
+Etapa '6/10 Microsoft Office'
 if (-not $OfficeProduto) { Ok 'Office nao selecionado - pulado' }
 elseif ($temOffice) { Ok 'Office ja estava instalado' }
-elseif ($internet) {
-    try {
-        $odt = Join-Path $Work 'office'
-        New-Item -ItemType Directory -Force -Path $odt | Out-Null
-        Invoke-WebRequest 'https://officecdn.microsoft.com/pr/wsus/setup.exe' -OutFile "$odt\setup.exe" -UseBasicParsing
-        @"
-<Configuration>
-  <Add OfficeClientEdition="64" Channel="Current">
-    <Product ID="$OfficeProduto">
-      <Language ID="pt-br" />
-      <ExcludeApp ID="Groove" />
-      <ExcludeApp ID="Lync" />
-      <ExcludeApp ID="Bing" />
-      <ExcludeApp ID="Teams" />
-    </Product>
-  </Add>
-  <Updates Enabled="TRUE" />
-  <RemoveMSI />
-  <Display Level="None" AcceptEULA="TRUE" />
-</Configuration>
-"@ | Out-File "$odt\config.xml" -Encoding utf8
-        Start-Process "$odt\setup.exe" -ArgumentList "/configure `"$odt\config.xml`"" -Wait
-        if (Test-Path "$env:ProgramFiles\Microsoft Office\root\Office16\WINWORD.EXE") { Ok "Office instalado ($OfficeProduto) - ative entrando com a conta da licenca" }
-        else { Falha 'Office nao foi instalado' }
-    } catch { Falha "Office: $($_.Exception.Message)" }
-} else { Falha 'Office nao instalado (sem internet)' }
+elseif ($procOffice) {
+    if (-not $procOffice.HasExited) { Write-Host '  Esperando o Office terminar (ele ja vinha instalando em segundo plano)...' }
+    try { $procOffice | Wait-Process -Timeout 3600 -ErrorAction Stop } catch {}
+    if (Test-Path "$env:ProgramFiles\Microsoft Office\root\Office16\WINWORD.EXE") { Ok "Office instalado ($OfficeProduto) - ative entrando com a conta da licenca" }
+    elseif (-not $procOffice.HasExited) { Falha 'Office ainda instalando apos 1 hora - continua em segundo plano' }
+    else { Falha 'Office nao foi instalado' }
+} elseif (-not $internet) { Falha 'Office nao instalado (sem internet)' }
 
 # ---------------- 6. CHROME PADRAO E BARRA DE TAREFAS ----------------
 Etapa '7/10 Chrome como padrao e barra de tarefas'
@@ -556,7 +648,11 @@ else {
     Set-Reg $g 'DisplayLicenseNotice' 'NO' 'String'
     Set-Reg $g 'MetricsEnabled' 'NO' 'String'
     if (-not $naTomada) { Write-Host '  Notebook na bateria: a BIOS so sera atualizada com o carregador ligado.' -ForegroundColor Yellow }
-    if (Test-Path $tvsu) { Start-Process $tvsu -ArgumentList '/CM' -Wait; Ok 'Lenovo System Update executado (drivers e BIOS)' } else { Falha 'Lenovo System Update nao instalado' }
+    if (Test-Path $tvsu) {
+        $pl = Start-Process $tvsu -ArgumentList '/CM' -PassThru
+        try { $pl | Wait-Process -Timeout 1800 -ErrorAction Stop; Ok 'Lenovo System Update executado (drivers e BIOS)' }
+        catch { Ok 'Lenovo System Update continua trabalhando em segundo plano (nao desligue o notebook)' }
+    } else { Falha 'Lenovo System Update nao instalado' }
 }
 
 # ---------------- 8. WINDOWS UPDATE ----------------
@@ -587,7 +683,7 @@ function Card($nome, $valor, $status, $dica) { $cards.Add([pscustomobject]@{ Nom
 # Ativacao
 $ativ = '?'
 try {
-    $lic = Get-CimInstance SoftwareLicensingProduct -Filter "PartialProductKey IS NOT NULL AND Name LIKE 'Windows%'" | Select-Object -First 1
+    $lic = Get-CimInstance SoftwareLicensingProduct -Filter "ApplicationID='55c92734-d682-4d71-983e-d6ec3f16059f' AND PartialProductKey IS NOT NULL" | Select-Object -First 1
     $ativ = @{0='Nao licenciado';1='Ativado';2='Periodo inicial';3='Periodo adicional';4='Nao original';5='Notificacao';6='Periodo estendido'}[[int]$lic.LicenseStatus]
 } catch {}
 
@@ -596,12 +692,14 @@ $ssd = [ordered]@{ Modelo='?'; Saude=$null; Erros=$null; Horas=$null; Gravado=$n
 $cdiOrig = Join-Path $Pendrive 'Portateis\CrystalDiskInfo9_9_4'
 if (Test-Path "$cdiOrig\DiskInfo64.exe") {
     try {
-        $cdi = Join-Path $Work 'cdi'
-        Copy-Item $cdiOrig $cdi -Recurse -Force
+        # Roda direto do pendrive (copiar os ~650 arquivos para o disco era lento)
+        $cdi = $cdiOrig
+        Remove-Item "$cdi\DiskInfo.txt" -Force -ErrorAction SilentlyContinue
         Start-Process "$cdi\DiskInfo64.exe" -ArgumentList '/CopyExit' -Wait
         if (Test-Path "$cdi\DiskInfo.txt") {
             $txt = Get-Content "$cdi\DiskInfo.txt" -Encoding UTF8
             Copy-Item "$cdi\DiskInfo.txt" "$Work\CrystalDiskInfo-completo.txt" -Force
+            Remove-Item "$cdi\DiskInfo.txt" -Force -ErrorAction SilentlyContinue
             $l = $txt | Select-String '^\s*Model\s*:' | Select-Object -First 1; if ($l) { $ssd.Modelo = ($l.Line -split ':',2)[1].Trim() }
             $l = $txt | Select-String '\((\d{1,3})\s*%\)' | Select-Object -First 1; if ($l) { $ssd.Saude = [int]$l.Matches[0].Groups[1].Value }
             $l = $txt | Select-String '^\s*0E\s+([0-9A-Fa-f_]+)\s+Media and Data Integrity' | Select-Object -First 1
@@ -693,6 +791,8 @@ $linhasPassos = ($resumo | ForEach-Object {
 }) -join "`n"
 function N($v, $suf) { if ($null -eq $v) { '?' } else { "$('{0:N0}' -f $v)$suf" } }
 
+$totalSeg = [int]$relogio.Elapsed.TotalSeconds
+$totalTxt = "$([int][math]::Floor($totalSeg/60)) min"
 $html = @"
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -746,6 +846,7 @@ $(if ($bat) { "<tr><th>Bateria</th><td>$(Esc $bat.Modelo)</td></tr><tr><th>Capac
 <section><h2>O que a pós-formatação fez</h2><ul>
 $linhasPassos
 </ul></section>
+$(if ($tempos.Count) { "<section><h2>Tempo de cada etapa (total $totalTxt)</h2><table>" + (($tempos | ForEach-Object { "<tr><th>$(Esc $_.Etapa)</th><td>$([int][math]::Floor($_.Segundos/60)) min $($_.Segundos % 60) s</td></tr>" }) -join '') + "</table></section>" })
 <footer>Gerado pelo pendrive de manutenção &middot; detalhes técnicos em C:\PosFormatacao</footer>
 </div></body></html>
 "@

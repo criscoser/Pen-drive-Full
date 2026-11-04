@@ -6,7 +6,8 @@
 - Instalação automática do Windows 11 com conta local / Unattended Windows 11 install with a local account
 - Pós-formatação: Wi-Fi, limpeza, programas, Office, Chrome padrão, drivers e BIOS Lenovo / Post-install: Wi-Fi, cleanup, apps, Office, default Chrome, Lenovo drivers and BIOS
 - Teste de estresse: Prime95 (processador) e FurMark 2 (placa de vídeo) / Stress test: Prime95 (CPU) and FurMark 2 (GPU)
-- Menu para escolher os programas / Menu to pick the apps
+- Janela única de escolha no início (Wi-Fi, programas, otimização) / Single choice window at the start (Wi-Fi, apps, optimization)
+- Mais rápido: Office em segundo plano, checagens em lote, tempo de cada etapa no relatório / Faster: Office in the background, batched checks, per-step timing in the report
 - Pula programas já instalados / Skips apps already installed
 - Chrome sem perguntas / Chrome without prompts
 - Menu do Ventoy entra no Windows instalado após 10 s / Ventoy menu boots the installed Windows after 10 s
