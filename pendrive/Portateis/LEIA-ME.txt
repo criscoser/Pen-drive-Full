@@ -7,3 +7,7 @@ TesteEstresse\ (ver COMO-USAR.txt dentro da pasta):
 - Prime95 - processador e memoria - https://www.mersenne.org/download/
 - FurMark 2 - placa de video - https://www.geeks3d.com/furmark/
   Ambos gratuitos para uso pessoal e comercial. Baixe sempre do site oficial e confira o SHA-256.
+
+TesteUSB\ (ver COMO-USAR.txt dentro da pasta):
+- USB Device Tree Viewer - portas USB e velocidade - https://www.uwe-sieber.de/usbtreeview_e.html
+- CrystalDiskMark - velocidade real de cada porta - https://crystalmark.info

@@ -15,12 +15,15 @@
 - Privacidade máxima e otimização genérica (qualquer marca) / Maximum privacy and generic optimization (any brand)
 - Wi-Fi escolhido na hora pelo usuário, com opção de salvar no pendrive / Wi-Fi picked on the spot by the user, optionally saved on the drive
 - Configurações e senha do Wi-Fi fora do código (`config.json`) / Settings and Wi-Fi password out of the code (`config.json`)
+- Linux Mint XFCE, Kali Linux, Windows 10, SystemRescue e netboot.xyz / Linux Mint XFCE, Kali Linux, Windows 10, SystemRescue and netboot.xyz
+- Teste de portas USB (USB Device Tree Viewer, CrystalDiskMark) / USB port testing
+- Lista de SHA-256 oficiais das ISOs / Official ISO SHA-256 list
 
 ## 🔜 Próximos / Next
 - [ ] **Idioma: português e inglês (EUA), com escolha pelo usuário** / **Language: Portuguese and US English, user-selectable** (menu do Ventoy, scripts, relatório, painel / Ventoy menu, scripts, report, panel)
 - [ ] Sem nenhum clique: trocar Lenovo System Update pelo Lenovo Thin Installer / Zero clicks: replace Lenovo System Update with Lenovo Thin Installer
 - [ ] Script continua de onde parou se for interrompido / Script resumes where it stopped
-- [ ] Ferramentas novas / New tools: TestDisk/PhotoRec, Sysinternals, AdwCleaner, Microsoft Safety Scanner, CrystalDiskMark, OCCT, DriverStore Explorer, WinUtil, SystemRescue, netboot.xyz
+- [ ] Ferramentas novas / New tools: Sysinternals, AdwCleaner, Microsoft Safety Scanner, OCCT, DriverStore Explorer, WinUtil
 - [ ] Hiren's BootCD PE e Sergei Strelec WinPE
 - [ ] `ATUALIZAR-PENDRIVE.bat`: atualizador automático (fontes oficiais, SHA-256, atualiza o Ventoy) / auto-updater (official sources, SHA-256, updates Ventoy)
 - [ ] Tema do menu de boot: fundo escuro, logo, ícones, nomes amigáveis, categorias, aviso vermelho no ShredOS / Boot menu theme: dark background, logo, icons, friendly names, categories, red warning on ShredOS

@@ -22,3 +22,4 @@ pendrive/Drivers/**/*
 # Relatorios das maquinas / machine reports
 Relatorios/
 pendrive/Relatorios/
+!pendrive/ISOs/SHA256-OFICIAIS.txt

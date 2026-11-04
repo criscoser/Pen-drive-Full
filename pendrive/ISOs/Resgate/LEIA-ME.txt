@@ -1,3 +1,5 @@
-Ambientes de resgate WinPE:
-- Hiren's BootCD PE (HBCD_PE_x64.iso) - https://www.hirensbootcd.org
-- Sergei Strelec WinPE - https://sergeistrelec.name
+Apagar disco e ambientes de resgate:
+- ShredOS - https://github.com/PartialVolume/shredos.x86_64/releases
+    ATENCAO: apaga o disco de forma definitiva. So use em disco que vai ser descartado ou doado.
+- (opcional) Hiren's BootCD PE (HBCD_PE_x64.iso) - https://www.hirensbootcd.org
+- (opcional) Sergei Strelec WinPE - https://sergeistrelec.name

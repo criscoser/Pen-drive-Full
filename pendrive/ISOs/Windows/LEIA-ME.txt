@@ -1,1 +1,5 @@
-Coloque aqui as ISOs de instalacao do Windows (ex.: Windows11_Client_x64_pt-br_26300_9457.iso).
+ISOs de instalacao do Windows. Todas as ISOs desta pasta usam a instalacao automatica (ventoy\script\autounattend.xml).
+- Windows 11 - https://www.microsoft.com/pt-br/software-download/windows11
+- Windows 10 - https://www.microsoft.com/pt-br/software-download/windows10
+    Suporte da Microsoft acabou em 14/10/2025 (atualizacoes pagas ESU ate 13/10/2026). Use so em PC que nao aceita o Windows 11.
+    No Windows a pagina da Microsoft oferece a "Ferramenta de Criacao de Midia": escolha "Arquivo ISO".

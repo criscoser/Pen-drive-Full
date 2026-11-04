@@ -1,0 +1,22 @@
+TESTE DAS PORTAS USB
+
+Voce precisa de: um pendrive ou HD externo que voce sabe que funciona (de preferencia USB 3).
+
+1. VER SE A PORTA FUNCIONA E A VELOCIDADE - UsbTreeView.exe
+   1. Abra o UsbTreeView.exe (nao precisa instalar).
+   2. Coloque o pendrive em uma porta. Ele aparece na arvore, na porta onde foi ligado.
+   3. Clique nele e veja no painel da direita:
+        "Speed: SuperSpeed" ou "SuperSpeedPlus" = porta USB 3 funcionando
+        "Speed: High-Speed"                    = USB 2 (normal em porta preta / USB 2)
+   4. Repita em cada porta. Porta que nao mostra nada, ou porta azul (USB 3) que so
+      mostra High-Speed = porta ou cabo com defeito.
+   Dica: a lista "Device Problem" e erros em amarelo indicam falha de driver ou energia.
+
+2. MEDIR A VELOCIDADE DE VERDADE - CrystalDiskMark (pasta CrystalDiskMark)
+   1. Abra o DiskMark64.exe. Escolha a letra do pendrive em cima a direita.
+   2. Clique em "All". Anote o valor "SEQ1M Q8T1 Read".
+   3. Repita nas outras portas. Uma porta bem mais lenta que as outras com o mesmo
+      pendrive = porta com problema.
+
+Fontes oficiais: https://www.uwe-sieber.de/usbtreeview_e.html
+                 https://crystalmark.info/en/software/crystaldiskmark/

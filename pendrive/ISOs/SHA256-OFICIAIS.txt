@@ -1,0 +1,19 @@
+SHA-256 OFICIAIS DAS ISOs (copiados dos sites oficiais)
+
+Como conferir: no menu do Ventoy, selecione a ISO, aperte F2 > File checksum > SHA256.
+Ou no Windows (PowerShell):  Get-FileHash .\arquivo.iso
+O codigo tem que ser IGUAL ao daqui. Se for diferente, apague e baixe de novo.
+
+Linux Mint 22.3 XFCE      linuxmint-22.3-xfce-64bit.iso
+  45a835b5dddaf40e84d776549e0b19b3fbd49673b6cc6434ebddbfcd217df776
+Kali Linux 2026.3 Live    kali-linux-2026.3-live-amd64.iso
+  93a40ef53936719119824c3f0f0742ab50a045e2e082b95e382cf9f2f1f8acbb
+Kali Linux 2026.3 Instal. kali-linux-2026.3-installer-amd64.iso
+  db9cbed33edb45727d16911813c2434fcd1419585007884153be22a03b30ec2f
+SystemRescue 13.02        systemrescue-13.02-amd64.iso
+  ad4d670b72859d887c7960142a9a9d36a3e50446694a035e254442f65d6e7572
+netboot.xyz               netboot.xyz.iso  (muda a cada versao, confira em boot.netboot.xyz/ipxe/netboot.xyz-sha256-checksums.txt)
+  ad2c393ac44774733d03f796a9db66aa92ee060f824809ce8462d7ae0672d7de
+
+Windows: a Microsoft nao publica o SHA-256 junto com a ferramenta de criacao de midia.
+Baixe sempre de microsoft.com.

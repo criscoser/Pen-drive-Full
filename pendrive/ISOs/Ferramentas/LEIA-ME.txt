@@ -1,5 +1,10 @@
 Ferramentas de disco e diagnostico:
-- GParted Live - https://gparted.org/download.php
+- SystemRescue - https://www.system-rescue.org/Download/
+    Particoes (GParted), recuperar arquivos apagados (TestDisk/PhotoRec), testes de disco. Substitui o GParted Live.
 - Rescuezilla - https://rescuezilla.com/download
-- MemTest86 (versao ISO) - https://www.memtest86.com
-- ShredOS (versao .img) - https://github.com/PartialVolume/shredos.x86_64/releases
+    Backup e clonagem de disco com interface simples.
+- MemTest86 (versao USB, .img) - https://www.memtest86.com
+    Teste de memoria RAM.
+- netboot.xyz (netboot.xyz.iso) - https://netboot.xyz/downloads/
+    Menu que baixa pela internet (cabo de rede) quase qualquer Linux e ferramenta. Arquivo de 2 MB.
+    Se o PC estiver com Secure Boot ligado e recusar, use netboot.xyz-sb.iso.

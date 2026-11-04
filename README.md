@@ -17,9 +17,11 @@ Pendrive multiboot de manutenção baseado no [Ventoy](https://github.com/ventoy
 ### O que ele faz
 
 **No boot (menu do Ventoy)**
-- Instala o Windows 11 com o arquivo de respostas `autounattend.xml`: português, teclado ABNT2, conta local sem e-mail da Microsoft, sem telas de privacidade. **A escolha do disco continua manual**, para nunca apagar o disco errado.
-- Ferramentas de boot: MemTest86 (memória), Rescuezilla (backup/clonagem), GParted (partições), Linux Mint (resgate de arquivos), ShredOS (apagar disco).
-- Ferramentas portáteis no Windows: CrystalDiskInfo (SSD), HWiNFO (hardware e temperaturas) e **teste de estresse** com Prime95 (processador e memória) e FurMark 2 (placa de vídeo).
+- Instala o Windows 11 (ou o 10, para PCs que não aceitam o 11) com o arquivo de respostas `autounattend.xml`: português, teclado ABNT2, conta local sem e-mail da Microsoft, sem telas de privacidade. **A escolha do disco continua manual**, para nunca apagar o disco errado.
+- Ferramentas de boot: MemTest86 (memória), Rescuezilla (backup/clonagem), SystemRescue (partições, TestDisk/PhotoRec), netboot.xyz (baixa outros sistemas pela rede), ShredOS (apagar disco).
+- Linux live: Linux Mint XFCE (leve, para PCs fracos e resgate de arquivos) e Kali Linux (segurança e redes).
+- Ferramentas portáteis no Windows: CrystalDiskInfo (SSD), HWiNFO (hardware e temperaturas), **teste de estresse** com Prime95 (processador e memória) e FurMark 2 (placa de vídeo), e **teste das portas USB** com USB Device Tree Viewer e CrystalDiskMark.
+- `ISOs/SHA256-OFICIAIS.txt` lista o SHA-256 oficial de cada ISO para conferir o download.
 - Se a máquina reiniciar com o pendrive conectado e ninguém escolher nada, em 10 segundos ela entra no Windows instalado.
 
 **Depois da instalação (`POS-FORMATACAO.bat`, ou sozinho no primeiro login)**
@@ -65,7 +67,7 @@ docs/                           → imagens do README
 2. Copie o conteúdo da pasta `pendrive/` para a raiz do pendrive.
 3. Baixe as ISOs e ferramentas indicadas no `LEIA-ME.txt` de cada pasta, sempre dos sites oficiais.
 4. (Opcional) Copie `PosFormatacao/config.example.json` para `config.json` para fixar Wi-Fi, programas e Office. Sem ele, o script pergunta o Wi-Fi na hora.
-5. Se a sua ISO do Windows tiver outro nome, ajuste o caminho em `ventoy/ventoy.json`.
+5. Coloque as ISOs do Windows em `ISOs/Windows/`: todas elas usam a instalação automática.
 
 > 🔒 O `config.json` guarda a senha do Wi-Fi e **não** vai para o repositório (`.gitignore`).
 
@@ -84,9 +86,11 @@ A definir antes da publicação. As ferramentas de terceiros (Ventoy, MemTest86,
 ### What it does
 
 **At boot (Ventoy menu)**
-- Installs Windows 11 with an `autounattend.xml` answer file: local account without a Microsoft account, no privacy screens. **Disk selection stays manual**, so it never wipes the wrong drive.
-- Boot tools: MemTest86 (RAM), Rescuezilla (backup/cloning), GParted (partitions), Linux Mint (file rescue), ShredOS (disk wipe).
-- Portable Windows tools: CrystalDiskInfo (SSD), HWiNFO (hardware and temperatures) and **stress testing** with Prime95 (CPU and RAM) and FurMark 2 (graphics card).
+- Installs Windows 11 (or 10, for PCs that can't run 11) with an `autounattend.xml` answer file: local account without a Microsoft account, no privacy screens. **Disk selection stays manual**, so it never wipes the wrong drive.
+- Boot tools: MemTest86 (RAM), Rescuezilla (backup/cloning), SystemRescue (partitions, TestDisk/PhotoRec), netboot.xyz (boots other systems over the network), ShredOS (disk wipe).
+- Live Linux: Linux Mint XFCE (lightweight, for weak PCs and file rescue) and Kali Linux (security and networking).
+- Portable Windows tools: CrystalDiskInfo (SSD), HWiNFO (hardware and temperatures), **stress testing** with Prime95 (CPU and RAM) and FurMark 2 (graphics card), and **USB port testing** with USB Device Tree Viewer and CrystalDiskMark.
+- `ISOs/SHA256-OFICIAIS.txt` lists each ISO's official SHA-256 to verify downloads.
 - If the machine reboots with the drive plugged in and nobody picks anything, it boots the installed Windows after 10 seconds.
 
 **After installation (`POS-FORMATACAO.bat`, or automatically at first logon)**
@@ -113,7 +117,7 @@ A definir antes da publicação. As ferramentas de terceiros (Ventoy, MemTest86,
 2. Copy the contents of `pendrive/` to the root of the drive.
 3. Download the ISOs and tools listed in each folder's `LEIA-ME.txt`, always from the official sites.
 4. (Optional) Copy `PosFormatacao/config.example.json` to `config.json` to preset Wi-Fi, apps and Office. Without it, the script asks for Wi-Fi on the spot.
-5. If your Windows ISO has a different name, update the path in `ventoy/ventoy.json`.
+5. Put Windows ISOs in `ISOs/Windows/`: every ISO there uses the unattended install.
 
 > 🔒 `config.json` holds the Wi-Fi password and is **not** committed (`.gitignore`).
 
