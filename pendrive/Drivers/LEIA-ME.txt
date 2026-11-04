@@ -1,0 +1,3 @@
+Drivers offline para depois de formatar:
+- SDI Lite (Snappy Driver Installer) - https://sdi-tool.org
+- Driver de rede/Wi-Fi da placa-mae ou notebook mais usado

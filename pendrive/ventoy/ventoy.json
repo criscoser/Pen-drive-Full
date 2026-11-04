@@ -1,0 +1,15 @@
+{
+  "control": [
+    { "VTOY_WIN11_BYPASS_CHECK": "1" },
+    { "VTOY_WIN11_BYPASS_NRO": "1" },
+    { "VTOY_DEFAULT_SEARCH_ROOT": "/ISOs" },
+    { "VTOY_MENU_TIMEOUT": "10" },
+    { "VTOY_DEFAULT_IMAGE": "F4>Search and boot Windows" }
+  ],
+  "auto_install": [
+    {
+      "image": "/ISOs/Windows/Windows11_Client_x64_pt-br_26300_9457.iso",
+      "template": "/ventoy/script/autounattend.xml"
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+Linux live para salvar arquivos e testar hardware:
+- Linux Mint Cinnamon - https://linuxmint.com/download.php

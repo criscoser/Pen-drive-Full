@@ -1,0 +1,3 @@
+Ambientes de resgate WinPE:
+- Hiren's BootCD PE (HBCD_PE_x64.iso) - https://www.hirensbootcd.org
+- Sergei Strelec WinPE - https://sergeistrelec.name

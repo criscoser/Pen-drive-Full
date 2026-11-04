@@ -1,0 +1,16 @@
+POS-FORMATACAO - como usar
+
+MAQUINA JA FORMATADA:
+  1. Conecte o carregador e o pendrive.
+  2. De dois cliques em POS-FORMATACAO.bat (na raiz do pendrive) e clique em Sim.
+  3. Espere a janela azul terminar (30 a 60 min), tire o pendrive e reinicie.
+
+FORMATACAO NOVA (Ventoy + autounattend.xml):
+  O script roda sozinho no primeiro login. Deixe o pendrive conectado ate aparecer PRONTO.
+
+SO O RELATORIO (sem refazer nada): dois cliques em RELATORIO.bat.
+O relatorio abre no navegador, fica na Area de Trabalho e na pasta Relatorios do pendrive.
+Abra Relatorios\Resumo-das-maquinas.html para ver todas as maquinas lado a lado.
+
+CONFIGURACAO: copie config.example.json para config.json e preencha Wi-Fi, programas e Office.
+ATENCAO: o config.json guarda a senha do Wi-Fi. Nao empreste o pendrive.

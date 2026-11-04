@@ -1,0 +1,1 @@
+Coloque aqui as ISOs de instalacao do Windows (ex.: Windows11_Client_x64_pt-br_26300_9457.iso).

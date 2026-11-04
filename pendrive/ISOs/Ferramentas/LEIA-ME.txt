@@ -1,0 +1,5 @@
+Ferramentas de disco e diagnostico:
+- GParted Live - https://gparted.org/download.php
+- Rescuezilla - https://rescuezilla.com/download
+- MemTest86 (versao ISO) - https://www.memtest86.com
+- ShredOS (versao .img) - https://github.com/PartialVolume/shredos.x86_64/releases

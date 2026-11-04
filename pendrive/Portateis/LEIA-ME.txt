@@ -1,0 +1,4 @@
+Programas portateis uteis:
+- CrystalDiskInfo (saude do HD/SSD) - https://crystalmark.info
+- HWiNFO (hardware e temperaturas) - https://www.hwinfo.com
+- 7-Zip - https://www.7-zip.org

@@ -1,0 +1,23 @@
+# Segredos / secrets
+config.json
+
+# Arquivos grandes baixados das fontes oficiais / large files downloaded from official sources
+*.iso
+*.img
+*.zip
+*.7z
+*.exe
+*.msi
+pendrive/ISOs/**/*
+!pendrive/ISOs/**/
+!pendrive/ISOs/**/LEIA-ME.txt
+pendrive/Portateis/**/*
+!pendrive/Portateis/**/
+!pendrive/Portateis/LEIA-ME.txt
+pendrive/Drivers/**/*
+!pendrive/Drivers/**/
+!pendrive/Drivers/LEIA-ME.txt
+
+# Relatorios das maquinas / machine reports
+Relatorios/
+pendrive/Relatorios/

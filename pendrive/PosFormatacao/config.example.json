@@ -1,0 +1,14 @@
+{
+  "WifiNome": "NOME-DA-REDE",
+  "WifiSenha": "SENHA-DA-REDE",
+  "OfficeProduto": "O365BusinessRetail",
+  "AtualizarProgramas": false,
+  "Programas": [
+    "Google.Chrome",
+    "7zip.7zip",
+    "Adobe.Acrobat.Reader.64-bit",
+    "VideoLAN.VLC",
+    "AnyDesk.AnyDesk",
+    "Lenovo.SystemUpdate"
+  ]
+}
