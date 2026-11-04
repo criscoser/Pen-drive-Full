@@ -23,7 +23,7 @@ Pendrive multiboot de manutenção baseado no [Ventoy](https://github.com/ventoy
 
 **Depois da instalação (`POS-FORMATACAO.bat`, ou sozinho no primeiro login)**
 1. Energia: não dorme na tomada durante o processo.
-2. Wi-Fi: conecta na rede configurada.
+2. Wi-Fi: se não houver internet, lista as redes disponíveis para a pessoa escolher e digitar a senha (e pode salvar no pendrive para as próximas máquinas).
 3. Limpeza: remove apps desnecessários e propagandas, mostra extensões de arquivo.
 4. Programas via `winget`: Chrome, 7-Zip, Adobe Reader, VLC, AnyDesk, Lenovo System Update. **Pula o que já está instalado.**
 5. Microsoft 365 Apps (Office) pelo instalador oficial da Microsoft.
@@ -61,7 +61,7 @@ docs/                           → imagens do README
 1. Instale o Ventoy no pendrive (exFAT, GPT, Secure Boot ligado).
 2. Copie o conteúdo da pasta `pendrive/` para a raiz do pendrive.
 3. Baixe as ISOs e ferramentas indicadas no `LEIA-ME.txt` de cada pasta, sempre dos sites oficiais.
-4. Copie `PosFormatacao/config.example.json` para `config.json` e preencha Wi-Fi, programas e Office.
+4. (Opcional) Copie `PosFormatacao/config.example.json` para `config.json` para fixar Wi-Fi, programas e Office. Sem ele, o script pergunta o Wi-Fi na hora.
 5. Se a sua ISO do Windows tiver outro nome, ajuste o caminho em `ventoy/ventoy.json`.
 
 > 🔒 O `config.json` guarda a senha do Wi-Fi e **não** vai para o repositório (`.gitignore`).
@@ -87,7 +87,7 @@ A definir antes da publicação. As ferramentas de terceiros (Ventoy, MemTest86,
 
 **After installation (`POS-FORMATACAO.bat`, or automatically at first logon)**
 1. Power: no sleep on AC while it runs.
-2. Wi-Fi: connects to the configured network.
+2. Wi-Fi: if there is no internet, lists the nearby networks so the user picks one and types the password (optionally saved on the drive for the next machines).
 3. Cleanup: removes bloatware and ads, shows file extensions.
 4. Apps via `winget`: Chrome, 7-Zip, Adobe Reader, VLC, AnyDesk, Lenovo System Update. **Skips anything already installed.**
 5. Microsoft 365 Apps (Office) through Microsoft's official deployment tool.
@@ -106,7 +106,7 @@ A definir antes da publicação. As ferramentas de terceiros (Ventoy, MemTest86,
 1. Install Ventoy on the USB drive (exFAT, GPT, Secure Boot on).
 2. Copy the contents of `pendrive/` to the root of the drive.
 3. Download the ISOs and tools listed in each folder's `LEIA-ME.txt`, always from the official sites.
-4. Copy `PosFormatacao/config.example.json` to `config.json` and fill in Wi-Fi, apps and Office.
+4. (Optional) Copy `PosFormatacao/config.example.json` to `config.json` to preset Wi-Fi, apps and Office. Without it, the script asks for Wi-Fi on the spot.
 5. If your Windows ISO has a different name, update the path in `ventoy/ventoy.json`.
 
 > 🔒 `config.json` holds the Wi-Fi password and is **not** committed (`.gitignore`).

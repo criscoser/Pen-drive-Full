@@ -9,6 +9,7 @@
 - Chrome sem perguntas / Chrome without prompts
 - Menu do Ventoy entra no Windows instalado após 10 s / Ventoy menu boots the installed Windows after 10 s
 - Relatório visual em HTML e resumo de todas as máquinas / Visual HTML report and machines summary
+- Wi-Fi escolhido na hora pelo usuário, com opção de salvar no pendrive / Wi-Fi picked on the spot by the user, optionally saved on the drive
 - Configurações e senha do Wi-Fi fora do código (`config.json`) / Settings and Wi-Fi password out of the code (`config.json`)
 
 ## 🔜 Próximos / Next

@@ -88,32 +88,103 @@ if (-not $naTomada) { Write-Host '  ATENCAO: o notebook esta na BATERIA. Ligue o
 
 # ---------------- 2. WI-FI ----------------
 Etapa '2/9 Wi-Fi'
-if ($WifiNome) {
-$hex = -join ($WifiNome.ToCharArray() | ForEach-Object { '{0:X2}' -f [int]$_ })
-$perfil = @"
-<?xml version="1.0"?>
-<WLANProfile xmlns="http://www.microsoft.com/networking/WLAN/profile/v1">
-  <name>$WifiNome</name>
-  <SSIDConfig><SSID><hex>$hex</hex><name>$WifiNome</name></SSID></SSIDConfig>
-  <connectionType>ESS</connectionType>
-  <connectionMode>auto</connectionMode>
-  <MSM><security>
-    <authEncryption><authentication>WPA2PSK</authentication><encryption>AES</encryption><useOneX>false</useOneX></authEncryption>
-    <sharedKey><keyType>passPhrase</keyType><protected>false</protected><keyMaterial>$WifiSenha</keyMaterial></sharedKey>
-  </security></MSM>
-</WLANProfile>
-"@
-$perfilArq = Join-Path $Work 'wifi.xml'
-$perfil | Out-File -FilePath $perfilArq -Encoding utf8
-netsh wlan add profile filename="$perfilArq" user=all | Out-Null
-netsh wlan connect name="$WifiNome" | Out-Null
-Remove-Item $perfilArq -Force -ErrorAction SilentlyContinue
-} else { Write-Host '  Nenhuma rede Wi-Fi configurada (config.json) - usando a conexao atual' }
-Write-Host '  Aguardando internet (ate 2 minutos)...'
-$internet = $false
-for ($i = 0; $i -lt 24; $i++) { if (Tem-Internet) { $internet = $true; break }; Start-Sleep 5 }
-if ($internet) { Ok $(if ($WifiNome) { "Rede $WifiNome configurada e internet funcionando" } else { "Internet funcionando" }) }
-else { Falha "Sem internet. Programas, drivers e Office nao serao instalados agora. Conecte e rode o script de novo." }
+function Novo-PerfilWifi($ssid, $senha) {
+    $hex = -join ($ssid.ToCharArray() | ForEach-Object { '{0:X2}' -f [int]$_ })
+    $esc = [System.Security.SecurityElement]::Escape($ssid)
+    if ($senha) {
+        $seg = "<authEncryption><authentication>WPA2PSK</authentication><encryption>AES</encryption><useOneX>false</useOneX></authEncryption><sharedKey><keyType>passPhrase</keyType><protected>false</protected><keyMaterial>$([System.Security.SecurityElement]::Escape($senha))</keyMaterial></sharedKey>"
+    } else {
+        $seg = "<authEncryption><authentication>open</authentication><encryption>none</encryption><useOneX>false</useOneX></authEncryption>"
+    }
+    $xml = "<?xml version=`"1.0`"?><WLANProfile xmlns=`"http://www.microsoft.com/networking/WLAN/profile/v1`"><name>$esc</name><SSIDConfig><SSID><hex>$hex</hex><name>$esc</name></SSID></SSIDConfig><connectionType>ESS</connectionType><connectionMode>auto</connectionMode><MSM><security>$seg</security></MSM></WLANProfile>"
+    $arq = Join-Path $Work 'wifi.xml'
+    $xml | Out-File -FilePath $arq -Encoding utf8
+    netsh wlan add profile filename="$arq" user=all | Out-Null
+    Remove-Item $arq -Force -ErrorAction SilentlyContinue
+    netsh wlan connect name="$ssid" | Out-Null
+}
+function Espera-Internet($segundos) {
+    for ($i = 0; $i -lt [math]::Ceiling($segundos/5); $i++) { if (Tem-Internet) { return $true }; Start-Sleep 5 }
+    return $false
+}
+function Ler-ComTempo($pergunta, $segundos) {
+    # Le uma resposta; se ninguem digitar nada em $segundos, devolve $null
+    Write-Host -NoNewline $pergunta
+    $txt = ''; $fim = (Get-Date).AddSeconds($segundos)
+    try {
+        while ((Get-Date) -lt $fim) {
+            if ([Console]::KeyAvailable) {
+                $k = [Console]::ReadKey($true)
+                if ($k.Key -eq 'Enter') { Write-Host ''; return $txt }
+                if ($k.Key -eq 'Backspace') { if ($txt.Length) { $txt = $txt.Substring(0, $txt.Length-1); Write-Host -NoNewline "`b `b" } ; continue }
+                $txt += $k.KeyChar; Write-Host -NoNewline $k.KeyChar
+                $fim = (Get-Date).AddSeconds($segundos)
+            } else { Start-Sleep -Milliseconds 200 }
+        }
+    } catch { Write-Host ''; return (Read-Host) }
+    Write-Host ''; return $null
+}
+function Salvar-WifiNoConfig($ssid, $senha) {
+    try {
+        $c = if (Test-Path $cfgArq) { Get-Content $cfgArq -Raw -Encoding UTF8 | ConvertFrom-Json } else { [pscustomobject]@{} }
+        $c | Add-Member -NotePropertyName WifiNome -NotePropertyValue $ssid -Force
+        $c | Add-Member -NotePropertyName WifiSenha -NotePropertyValue $senha -Force
+        $c | ConvertTo-Json -Depth 5 | Out-File $cfgArq -Encoding utf8
+        Write-Host "  Rede salva no pendrive (PosFormatacao\config.json)." -ForegroundColor Green
+    } catch { Write-Host "  (aviso) nao foi possivel salvar no pendrive" -ForegroundColor DarkYellow }
+}
+
+$internet = Tem-Internet
+if ($internet) {
+    Ok 'Internet ja funcionando (cabo ou Wi-Fi ja conectado)'
+} elseif ($WifiNome) {
+    Novo-PerfilWifi $WifiNome $WifiSenha
+    Write-Host "  Conectando em $WifiNome (ate 2 minutos)..."
+    $internet = Espera-Internet 120
+    if ($internet) { Ok "Rede $WifiNome configurada e internet funcionando" }
+}
+if (-not $internet -and -not $SoRelatorio) {
+    Write-Host ''
+    Write-Host '  Sem internet. Vamos conectar no Wi-Fi.' -ForegroundColor Yellow
+    for ($tentativa = 1; $tentativa -le 3 -and -not $internet; $tentativa++) {
+        $redes = @()
+        try {
+            netsh wlan disconnect | Out-Null
+            Start-Sleep 3
+            $redes = @(netsh wlan show networks mode=bssid | Select-String '^\s*SSID\s+\d+\s*:\s*(.+)$' | ForEach-Object { $_.Matches[0].Groups[1].Value.Trim() } | Where-Object { $_ } | Select-Object -Unique)
+        } catch {}
+        if ($redes.Count) {
+            Write-Host '  Redes encontradas:'
+            for ($i = 0; $i -lt $redes.Count; $i++) { Write-Host ("    {0,2}) {1}" -f ($i+1), $redes[$i]) }
+            Write-Host '     D) Digitar o nome da rede (rede oculta)'
+        } else {
+            Write-Host '  Nao consegui listar as redes. Digite o nome da rede.'
+        }
+        Write-Host '     0) Pular (vou usar cabo / sem internet)'
+        $resp = Ler-ComTempo '  Escolha e aperte ENTER (60 s para pular): ' 60
+        if ($null -eq $resp -or $resp -eq '0') { break }
+        $ssid = $null
+        if ($resp -match '^\d+$' -and [int]$resp -ge 1 -and [int]$resp -le $redes.Count) { $ssid = $redes[[int]$resp-1] }
+        elseif ($resp -match '^[Dd]$' -or -not $redes.Count) { $ssid = if ($redes.Count) { Read-Host '  Nome da rede' } else { $resp } }
+        else { $ssid = $resp }
+        if (-not $ssid) { continue }
+        $sec = Read-Host "  Senha de $ssid (ENTER se for rede aberta)" -AsSecureString
+        $senha = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
+        Novo-PerfilWifi $ssid $senha
+        Write-Host "  Conectando em $ssid..."
+        $internet = Espera-Internet 40
+        if ($internet) {
+            Ok "Rede $ssid configurada e internet funcionando"
+            $s = Ler-ComTempo '  Salvar esta rede no pendrive para as proximas maquinas? (S/N): ' 30
+            if ($s -match '^[Ss]') { Salvar-WifiNoConfig $ssid $senha }
+        } else {
+            Write-Host '  Nao conectou. Confira a senha e tente de novo.' -ForegroundColor Yellow
+            netsh wlan delete profile name="$ssid" | Out-Null
+        }
+        $senha = $null
+    }
+}
+if (-not $internet) { Falha "Sem internet. Programas, drivers e Office nao serao instalados agora. Conecte e rode o script de novo." }
 
 # ---------------- 3. LIMPEZA DO WINDOWS ----------------
 Etapa '3/9 Limpeza do Windows'

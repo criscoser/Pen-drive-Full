@@ -1,6 +1,6 @@
 {
-  "WifiNome": "NOME-DA-REDE",
-  "WifiSenha": "SENHA-DA-REDE",
+  "WifiNome": "",
+  "WifiSenha": "",
   "OfficeProduto": "O365BusinessRetail",
   "AtualizarProgramas": false,
   "Programas": [
