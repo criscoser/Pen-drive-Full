@@ -14,6 +14,7 @@ pendrive/ISOs/**/*
 pendrive/Portateis/**/*
 !pendrive/Portateis/**/
 !pendrive/Portateis/LEIA-ME.txt
+!pendrive/Portateis/**/COMO-USAR.txt
 pendrive/Drivers/**/*
 !pendrive/Drivers/**/
 !pendrive/Drivers/LEIA-ME.txt

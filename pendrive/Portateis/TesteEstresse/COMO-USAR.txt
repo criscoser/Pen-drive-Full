@@ -1,0 +1,24 @@
+TESTE DE ESTRESSE - PROCESSADOR E PLACA DE VIDEO
+
+Antes de comecar:
+  - Notebook: ligue o CARREGADOR.
+  - Abra o HWiNFO (Portateis\HWiNFO\HWiNFO64.exe) > Sensors, para acompanhar as temperaturas.
+  - Feche os outros programas.
+
+PROCESSADOR (e memoria) - Prime95\prime95.exe
+  1. Abra o prime95.exe. Na primeira vez, clique em 'Just Stress Testing'.
+  2. Escolha 'Small FFTs' (esquenta mais o processador) ou 'Blend' (testa processador + memoria) e OK.
+  3. Deixe 15 a 30 minutos. Para parar: menu Test > Stop.
+  RESULTADO: tem que terminar sem erro (nenhuma linha 'FATAL ERROR' / 'ROUNDING' / travamento).
+  TEMPERATURA: ate ~90 C e normal em notebook. Acima disso, ou se desligar sozinho: limpeza e pasta termica.
+
+PLACA DE VIDEO - FurMark\FurMark_win64\FurMark_GUI.exe
+  1. Abra o FurMark_GUI.exe. Escolha a resolucao (ex.: 1280x720) e clique em GPU STRESS TEST.
+  2. Deixe 10 a 15 minutos.
+  RESULTADO: imagem sem falhas (pontinhos coloridos, riscos, tela preta) e sem travar.
+  TEMPERATURA: ate ~85 C e tranquilo. Acima de 90 C: limpeza/ventoinha.
+
+ATENCAO: teste de estresse esquenta ao maximo. Se a temperatura passar de 95 C, PARE na hora.
+
+Fontes oficiais: https://www.mersenne.org/download/  e  https://www.geeks3d.com/furmark/
+Prime95 30.19 (SHA-256 conferido) e FurMark 2.11.0.4 (SHA-256 conferido), gratuitos para uso pessoal e comercial.
