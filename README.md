@@ -19,6 +19,7 @@ Pendrive multiboot de manutenção baseado no [Ventoy](https://github.com/ventoy
 **No boot (menu do Ventoy)**
 - Instala o Windows 11 com o arquivo de respostas `autounattend.xml`: português, teclado ABNT2, conta local sem e-mail da Microsoft, sem telas de privacidade. **A escolha do disco continua manual**, para nunca apagar o disco errado.
 - Ferramentas de boot: MemTest86 (memória), Rescuezilla (backup/clonagem), GParted (partições), Linux Mint (resgate de arquivos), ShredOS (apagar disco).
+- Ferramentas portáteis no Windows: CrystalDiskInfo (SSD), HWiNFO (hardware e temperaturas) e **teste de estresse** com Prime95 (processador e memória) e FurMark 2 (placa de vídeo).
 - Se a máquina reiniciar com o pendrive conectado e ninguém escolher nada, em 10 segundos ela entra no Windows instalado.
 
 **Depois da instalação (`POS-FORMATACAO.bat`, ou sozinho no primeiro login)**
@@ -84,6 +85,7 @@ A definir antes da publicação. As ferramentas de terceiros (Ventoy, MemTest86,
 **At boot (Ventoy menu)**
 - Installs Windows 11 with an `autounattend.xml` answer file: local account without a Microsoft account, no privacy screens. **Disk selection stays manual**, so it never wipes the wrong drive.
 - Boot tools: MemTest86 (RAM), Rescuezilla (backup/cloning), GParted (partitions), Linux Mint (file rescue), ShredOS (disk wipe).
+- Portable Windows tools: CrystalDiskInfo (SSD), HWiNFO (hardware and temperatures) and **stress testing** with Prime95 (CPU and RAM) and FurMark 2 (graphics card).
 - If the machine reboots with the drive plugged in and nobody picks anything, it boots the installed Windows after 10 seconds.
 
 **After installation (`POS-FORMATACAO.bat`, or automatically at first logon)**
