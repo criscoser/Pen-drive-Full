@@ -9,6 +9,7 @@
 - Chrome sem perguntas / Chrome without prompts
 - Menu do Ventoy entra no Windows instalado após 10 s / Ventoy menu boots the installed Windows after 10 s
 - Relatório visual em HTML e resumo de todas as máquinas / Visual HTML report and machines summary
+- Privacidade máxima e otimização genérica (qualquer marca) / Maximum privacy and generic optimization (any brand)
 - Wi-Fi escolhido na hora pelo usuário, com opção de salvar no pendrive / Wi-Fi picked on the spot by the user, optionally saved on the drive
 - Configurações e senha do Wi-Fi fora do código (`config.json`) / Settings and Wi-Fi password out of the code (`config.json`)
 
@@ -22,4 +23,6 @@
 - [ ] Tema do menu de boot: fundo escuro, logo, ícones, nomes amigáveis, categorias, aviso vermelho no ShredOS / Boot menu theme: dark background, logo, icons, friendly names, categories, red warning on ShredOS
 - [ ] Painel gráfico no Windows (`PAINEL.bat`) / Windows GUI panel (`PAINEL.bat`)
 - [ ] Prévia visual do menu e do painel antes de construir / Visual preview of menu and panel before building
+- [ ] Drivers de outras marcas: Dell Command Update, HP Image Assistant / Other brands' driver tools: Dell Command Update, HP Image Assistant
+- [ ] Pendrive enxuto: ferramentas pesadas como módulos opcionais, baixados só quando usados / Lean drive: heavy tools as optional modules, downloaded only when used
 - [ ] Escolher a licença de código aberto / Choose the open-source license

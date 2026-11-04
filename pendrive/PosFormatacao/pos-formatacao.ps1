@@ -16,13 +16,14 @@ $WifiSenha     = ''
 $OfficeProduto = 'O365BusinessRetail'
 # $true = tambem atualiza programas que ja existem (mais lento). $false = so instala o que falta
 $AtualizarProgramas = $false
+# $true = aplica privacidade (sem telemetria) e otimizacoes do Windows
+$Otimizar = $true
 $Programas = @(
     'Google.Chrome',
     '7zip.7zip',
     'Adobe.Acrobat.Reader.64-bit',
     'VideoLAN.VLC',
-    'AnyDesk.AnyDesk',
-    'Lenovo.SystemUpdate'
+    'AnyDesk.AnyDesk'
 )
 $cfgArq = Join-Path (Split-Path -Parent $PSCommandPath) 'config.json'
 if (Test-Path $cfgArq) {
@@ -32,6 +33,7 @@ if (Test-Path $cfgArq) {
         if ($null -ne $cfg.WifiSenha)          { $WifiSenha = [string]$cfg.WifiSenha }
         if ($null -ne $cfg.OfficeProduto)      { $OfficeProduto = [string]$cfg.OfficeProduto }
         if ($null -ne $cfg.AtualizarProgramas) { $AtualizarProgramas = [bool]$cfg.AtualizarProgramas }
+        if ($null -ne $cfg.Otimizar)           { $Otimizar = [bool]$cfg.Otimizar }
         if ($cfg.Programas)                    { $Programas = @($cfg.Programas) }
     } catch { Write-Host "  (aviso) config.json invalido - usando valores padrao" -ForegroundColor DarkYellow }
 }
@@ -77,7 +79,7 @@ Write-Host "Se o notebook reiniciar sozinho e abrir o menu do Ventoy, NAO escolh
 
 if (-not $SoRelatorio) {
 # ---------------- 1. ENERGIA ----------------
-Etapa '1/9 Energia'
+Etapa '1/10 Energia'
 powercfg /change standby-timeout-ac 0 | Out-Null
 powercfg /change hibernate-timeout-ac 0 | Out-Null
 powercfg /change monitor-timeout-ac 15 | Out-Null
@@ -87,7 +89,7 @@ try { $b = Get-CimInstance Win32_Battery -ErrorAction Stop; if ($b -and $b.Batte
 if (-not $naTomada) { Write-Host '  ATENCAO: o notebook esta na BATERIA. Ligue o carregador.' -ForegroundColor Red }
 
 # ---------------- 2. WI-FI ----------------
-Etapa '2/9 Wi-Fi'
+Etapa '2/10 Wi-Fi'
 function Novo-PerfilWifi($ssid, $senha) {
     $hex = -join ($ssid.ToCharArray() | ForEach-Object { '{0:X2}' -f [int]$_ })
     $esc = [System.Security.SecurityElement]::Escape($ssid)
@@ -187,14 +189,14 @@ if (-not $internet -and -not $SoRelatorio) {
 if (-not $internet) { Falha "Sem internet. Programas, drivers e Office nao serao instalados agora. Conecte e rode o script de novo." }
 
 # ---------------- 3. LIMPEZA DO WINDOWS ----------------
-Etapa '3/9 Limpeza do Windows'
+Etapa '3/10 Limpeza do Windows'
 $lixo = @(
     'Microsoft.BingNews','Microsoft.BingSearch','Microsoft.GamingApp','Microsoft.XboxApp',
     'Microsoft.XboxGamingOverlay','Microsoft.XboxGameOverlay','Microsoft.XboxSpeechToTextOverlay',
     'Microsoft.Xbox.TCUI','Clipchamp.Clipchamp','Microsoft.MicrosoftSolitaireCollection',
     'Microsoft.People','Microsoft.Getstarted','Microsoft.WindowsFeedbackHub',
     'Microsoft.MicrosoftOfficeHub','MSTeams','MicrosoftTeams','Microsoft.549981C3F5F10',
-    'Microsoft.PowerAutomateDesktop','Microsoft.ZuneVideo','Microsoft.MixedReality.Portal',
+    'Microsoft.PowerAutomateDesktop','Microsoft.Copilot','Microsoft.Windows.Ai.Copilot.Provider','Microsoft.BingWeather','Microsoft.ZuneVideo','Microsoft.MixedReality.Portal',
     'Microsoft.SkypeApp','Microsoft.WindowsMaps','7EE7776C.LinkedInforWindows',
     '*CandyCrush*','*Spotify*','*Disney*','*TikTok*','*Instagram*','*Facebook*'
 )
@@ -242,8 +244,133 @@ if ($LASTEXITCODE -eq 0) {
 }
 Ok 'Propagandas e sugestoes desligadas, extensoes visiveis, barra a esquerda'
 
-# ---------------- 4. PROGRAMAS ----------------
-Etapa '4/9 Programas'
+# ---------------- 4. PRIVACIDADE E OTIMIZACAO ----------------
+Etapa '4/10 Privacidade e otimizacao'
+if (-not $Otimizar) { Ok 'Otimizacao desligada no config.json - pulada' }
+else {
+    # --- Telemetria e envio de dados (o minimo que o Windows aceita) ---
+    $dc = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection'
+    Set-Reg $dc 'AllowTelemetry' 0                      # Home/Pro tratam como o minimo ("Obrigatorio")
+    Set-Reg $dc 'MaxTelemetryAllowed' 0
+    Set-Reg $dc 'DoNotShowFeedbackNotifications' 1
+    Set-Reg $dc 'AllowDeviceNameInTelemetry' 0
+    Set-Reg $dc 'DisableOneSettingsDownloads' 1
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\AdvertisingInfo' 'DisabledByGroupPolicy' 1
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System' 'EnableActivityFeed' 0
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System' 'PublishUserActivities' 0
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System' 'UploadUserActivities' 0
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\System' 'AllowCrossDeviceClipboard' 0
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Error Reporting' 'Disabled' 1
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\SQMClient\Windows' 'CEIPEnable' 0
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\AppCompat' 'AITEnable' 0
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\AppCompat' 'DisableInventory' 1
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\TabletPC' 'PreventHandwritingDataSharing' 1
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\InputPersonalization' 'AllowInputPersonalization' 0
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Speech' 'AllowSpeechModelUpdate' 0
+    # Copilot e Recall (IA que analisa a tela)
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsCopilot' 'TurnOffWindowsCopilot' 1
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsAI' 'DisableAIDataAnalysis' 1
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsAI' 'AllowRecallEnablement' 0
+    # Pesquisa do Iniciar sem internet/Bing
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search' 'DisableWebSearch' 1
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search' 'ConnectedSearchUseWeb' 0
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search' 'AllowCloudSearch' 0
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search' 'AllowCortana' 0
+    # Atualizacoes: nao enviar pedacos de update para outros PCs da internet
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization' 'DODownloadMode' 0
+    # Defender continua ligado e protegendo; so nao envia arquivos do usuario
+    try { Set-MpPreference -SubmitSamplesConsent 2 -ErrorAction Stop } catch {}
+    # Edge e Office sem relatorios de uso
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' 'DiagnosticData' 0
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' 'PersonalizationReportingEnabled' 0
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' 'ShowRecommendationsEnabled' 0
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Google\Chrome' 'MetricsReportingEnabled' 0
+    # Servicos de telemetria (nao afetam Windows Update nem o funcionamento)
+    foreach ($sv in 'DiagTrack','dmwappushservice') {
+        try { Stop-Service $sv -Force -ErrorAction SilentlyContinue; Set-Service $sv -StartupType Disabled -ErrorAction Stop } catch {}
+    }
+    # Tarefas agendadas que coletam e enviam dados
+    $tarefas = @(
+        @('\Microsoft\Windows\Application Experience\','Microsoft Compatibility Appraiser'),
+        @('\Microsoft\Windows\Application Experience\','Microsoft Compatibility Appraiser Exp'),
+        @('\Microsoft\Windows\Application Experience\','ProgramDataUpdater'),
+        @('\Microsoft\Windows\Application Experience\','StartupAppTask'),
+        @('\Microsoft\Windows\Customer Experience Improvement Program\','Consolidator'),
+        @('\Microsoft\Windows\Customer Experience Improvement Program\','UsbCeip'),
+        @('\Microsoft\Windows\Autochk\','Proxy'),
+        @('\Microsoft\Windows\DiskDiagnostic\','Microsoft-Windows-DiskDiagnosticDataCollector'),
+        @('\Microsoft\Windows\Feedback\Siuf\','DmClient'),
+        @('\Microsoft\Windows\Feedback\Siuf\','DmClientOnScenarioDownload'),
+        @('\Microsoft\Windows\Windows Error Reporting\','QueueReporting')
+    )
+    $nt = 0
+    foreach ($t in $tarefas) { try { Disable-ScheduledTask -TaskPath $t[0] -TaskName $t[1] -ErrorAction Stop | Out-Null; $nt++ } catch {} }
+
+    # --- Preferencias por usuario (atual e proximos) ---
+    function Otimiza-Usuario($raiz) {
+        $pol = "$raiz\Software\Policies\Microsoft"
+        Set-Reg "$pol\Windows\CloudContent" 'DisableTailoredExperiencesWithDiagnosticData' 1
+        Set-Reg "$pol\Windows\Explorer" 'DisableSearchBoxSuggestions' 1
+        Set-Reg "$pol\Windows\WindowsCopilot" 'TurnOffWindowsCopilot' 1
+        Set-Reg "$raiz\Software\Microsoft\Windows\CurrentVersion\AdvertisingInfo" 'Enabled' 0
+        Set-Reg "$raiz\Software\Microsoft\Windows\CurrentVersion\Privacy" 'TailoredExperiencesWithDiagnosticDataEnabled' 0
+        Set-Reg "$raiz\Software\Microsoft\Windows\CurrentVersion\Search" 'BingSearchEnabled' 0
+        Set-Reg "$raiz\Software\Microsoft\Windows\CurrentVersion\Search" 'CortanaConsent' 0
+        Set-Reg "$raiz\Software\Microsoft\Siuf\Rules" 'NumberOfSIUFInPeriod' 0
+        Set-Reg "$raiz\Software\Microsoft\InputPersonalization" 'RestrictImplicitTextCollection' 1
+        Set-Reg "$raiz\Software\Microsoft\InputPersonalization" 'RestrictImplicitInkCollection' 1
+        Set-Reg "$raiz\Software\Microsoft\InputPersonalization\TrainedDataStore" 'HarvestContacts' 0
+        Set-Reg "$raiz\Software\Microsoft\Speech_OneCore\Settings\OnlineSpeechPrivacy" 'HasAccepted' 0
+        Set-Reg "$raiz\Software\Microsoft\Windows\CurrentVersion\UserProfileEngagement" 'ScoobeSystemSettingEnabled' 0
+        $cdm = "$raiz\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
+        Set-Reg $cdm 'RotatingLockScreenOverlayEnabled' 0
+        Set-Reg $cdm 'SubscribedContent-338387Enabled' 0
+        # Office: sem telemetria e sem "experiencias conectadas" opcionais
+        Set-Reg "$pol\Office\16.0\Common\ClientTelemetry" 'SendTelemetry' 3
+        Set-Reg "$pol\Office\16.0\Common\ClientTelemetry" 'DisableTelemetry' 1
+        Set-Reg "$pol\Office\16.0\Common\Privacy" 'controllerconnectedservicesenabled' 2
+        Set-Reg "$pol\Office\Common\ClientTelemetry" 'SendTelemetry' 3
+        # Jogos: sem gravacao em segundo plano
+        Set-Reg "$raiz\System\GameConfigStore" 'GameDVR_Enabled' 0
+        Set-Reg "$raiz\Software\Microsoft\Windows\CurrentVersion\GameDVR" 'AppCaptureEnabled' 0
+        # Visual mais leve (mantem fonte suavizada e miniaturas)
+        Set-Reg "$raiz\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize" 'EnableTransparency' 0
+        Set-Reg "$raiz\Control Panel\Desktop\WindowMetrics" 'MinAnimate' '0' 'String'
+        Set-Reg "$raiz\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" 'TaskbarAnimations' 0
+        Set-Reg "$raiz\Software\Microsoft\Windows\DWM" 'EnableAeroPeek' 0
+        Set-Reg "$raiz\Control Panel\Desktop" 'MenuShowDelay' '100' 'String'
+    }
+    Otimiza-Usuario 'HKCU:'
+    reg.exe load 'HKU\PFDefault' 'C:\Users\Default\NTUSER.DAT' 2>$null | Out-Null
+    if ($LASTEXITCODE -eq 0) { Otimiza-Usuario 'Registry::HKEY_USERS\PFDefault'; [gc]::Collect(); Start-Sleep 1; reg.exe unload 'HKU\PFDefault' | Out-Null }
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\GameDVR' 'AllowGameDVR' 0
+
+    # --- Desempenho e manutencao (vale para qualquer marca) ---
+    # Inicializacao Rapida desligada: evita problemas de driver e de atualizacao
+    Set-Reg 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power' 'HiberbootEnabled' 0
+    # Sensor de Armazenamento: limpa temporarios e lixeira com mais de 30 dias (Downloads nao e tocado)
+    $ss = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\StorageSense'
+    Set-Reg $ss 'AllowStorageSenseGlobal' 1
+    Set-Reg $ss 'ConfigStorageSenseGlobalCadence' 7
+    Set-Reg $ss 'AllowStorageSenseTemporaryFilesCleanup' 1
+    Set-Reg $ss 'ConfigStorageSenseRecycleBinCleanupThreshold' 30
+    Set-Reg $ss 'ConfigStorageSenseDownloadsCleanupThreshold' 0
+    # SSD: garante TRIM ligado e otimiza; HD: desfragmentacao continua agendada pelo Windows
+    fsutil behavior set DisableDeleteNotify 0 | Out-Null
+    try {
+        $tipo = (Get-PhysicalDisk | Where-Object { $_.DeviceId -eq ((Get-Partition -DriveLetter C | Get-Disk).Number) }).MediaType
+        if ($tipo -eq 'SSD') { Optimize-Volume -DriveLetter C -ReTrim -ErrorAction SilentlyContinue | Out-Null }
+    } catch {}
+    # Limpa temporarios da instalacao
+    Remove-Item "$env:TEMP\*" -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item "$env:WINDIR\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue
+
+    Ok "Telemetria no minimo, sem propaganda/Bing/Copilot/Recall, $nt tarefas de coleta desligadas"
+    Ok 'Visual mais leve, Inicializacao Rapida desligada, limpeza automatica e TRIM do SSD'
+}
+
+# ---------------- 5. PROGRAMAS ----------------
+Etapa '5/10 Programas'
 if ($internet) {
     $winget = Get-Command winget.exe -ErrorAction SilentlyContinue
     if (-not $winget) {
@@ -290,7 +417,7 @@ if ($internet) {
 } else { Falha 'Programas nao instalados (sem internet)' }
 
 # ---------------- 5. OFFICE ----------------
-Etapa '5/9 Microsoft Office (demora 10-20 min)'
+Etapa '6/10 Microsoft Office (demora 10-20 min)'
 $temOffice = (Test-Path "$env:ProgramFiles\Microsoft Office\root\Office16\WINWORD.EXE") -or (Test-Path "${env:ProgramFiles(x86)}\Microsoft Office\root\Office16\WINWORD.EXE") -or (Test-Path "$env:ProgramFiles\Microsoft Office\Office16\WINWORD.EXE") -or (Test-Path "${env:ProgramFiles(x86)}\Microsoft Office\Office16\WINWORD.EXE")
 if (-not $OfficeProduto) { Ok 'Office desativado no config.json - pulado' }
 elseif ($temOffice) { Ok 'Office ja estava instalado' }
@@ -322,7 +449,7 @@ elseif ($internet) {
 } else { Falha 'Office nao instalado (sem internet)' }
 
 # ---------------- 6. CHROME PADRAO E BARRA DE TAREFAS ----------------
-Etapa '6/9 Chrome como padrao e barra de tarefas'
+Etapa '7/10 Chrome como padrao e barra de tarefas'
 if (Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe") {
     # Chrome sem perguntas: sem tela de boas-vindas, sem pedir para ser padrao
     $cp = 'HKLM:\SOFTWARE\Policies\Google\Chrome'
@@ -362,31 +489,34 @@ if (Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe") {
 } else { Falha 'Chrome nao instalado, padrao nao alterado' }
 
 # ---------------- 7. DRIVERS E BIOS LENOVO ----------------
-Etapa '7/9 Drivers e BIOS Lenovo (demora 10-30 min)'
+Etapa '8/10 Drivers e BIOS do fabricante'
 $fab = (Get-CimInstance Win32_ComputerSystem).Manufacturer
 $tvsu = "${env:ProgramFiles(x86)}\Lenovo\System Update\tvsu.exe"
-if ($fab -notmatch 'LENOVO') { Ok "Fabricante $fab - etapa Lenovo ignorada" }
+if ($fab -notmatch 'LENOVO') { Ok "Fabricante $fab - drivers ficam com o Windows Update" }
 elseif (-not $internet) { Falha 'Drivers Lenovo nao instalados (sem internet)' }
-elseif (-not (Test-Path $tvsu)) { Falha 'Lenovo System Update nao encontrado' }
+elseif (-not (Test-Path $tvsu) -and -not (Get-Command winget.exe -ErrorAction SilentlyContinue)) { Falha 'Lenovo System Update nao encontrado' }
 else {
+    if (-not (Test-Path $tvsu)) {
+        Write-Host '  Instalando Lenovo System Update (so em computadores Lenovo)...'
+        winget install --id Lenovo.SystemUpdate -e --silent --accept-package-agreements --accept-source-agreements --disable-interactivity | Out-Null
+    }
     $g = 'HKLM:\SOFTWARE\Policies\Lenovo\System Update\UserSettings\General'
     Set-Reg $g 'AdminCommandLine' '/CM -search A -action INSTALL -includerebootpackages 1,3,4,5 -noicon -noreboot -nolicense' 'String'
     Set-Reg $g 'AskBeforeClosing' 'NO' 'String'
     Set-Reg $g 'DisplayLicenseNotice' 'NO' 'String'
     Set-Reg $g 'MetricsEnabled' 'NO' 'String'
     if (-not $naTomada) { Write-Host '  Notebook na bateria: a BIOS so sera atualizada com o carregador ligado.' -ForegroundColor Yellow }
-    Start-Process $tvsu -ArgumentList '/CM' -Wait
-    Ok 'Lenovo System Update executado (drivers e BIOS)'
+    if (Test-Path $tvsu) { Start-Process $tvsu -ArgumentList '/CM' -Wait; Ok 'Lenovo System Update executado (drivers e BIOS)' } else { Falha 'Lenovo System Update nao instalado' }
 }
 
 # ---------------- 8. WINDOWS UPDATE ----------------
-Etapa '8/9 Windows Update'
+Etapa '9/10 Windows Update'
 if ($internet) { Start-Process UsoClient.exe -ArgumentList 'StartInteractiveScan' -ErrorAction SilentlyContinue; Ok 'Busca do Windows Update iniciada (continua em segundo plano)' }
 
 } # fim das etapas 1-8
 if ($SoRelatorio) { $internet = $false; $resumo.Add('[OK]    Somente relatorio (pos-formatacao nao foi executada agora)') }
 # ---------------- 9. RELATORIO E NOME ----------------
-Etapa '9/9 Relatorio da maquina'
+Etapa '10/10 Relatorio da maquina'
 function Esc($t) { [System.Net.WebUtility]::HtmlEncode([string]$t) }
 
 $cs   = Get-CimInstance Win32_ComputerSystem
@@ -481,7 +611,7 @@ Card 'Memória' "$memGB GB ($canal)" $st $dica
 # Drivers
 $semDriver = @(Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Error' -or ($_.ConfigManagerErrorCode -and $_.ConfigManagerErrorCode -ne 0) })
 if ($semDriver.Count -eq 0) { Card 'Drivers' 'Todos instalados' 'ok' 'Nenhum dispositivo sem driver' }
-else { Card 'Drivers' "$($semDriver.Count) faltando" 'atencao' 'Rode o Lenovo System Update ou o Windows Update' }
+else { Card 'Drivers' "$($semDriver.Count) faltando" 'atencao' 'Rode o Windows Update ou a ferramenta do fabricante' }
 
 # Windows
 $st = if ($ativ -eq 'Ativado') { 'ok' } else { 'ruim' }
@@ -491,7 +621,7 @@ Card 'Windows' $ativ $st "$($os.Caption -replace 'Microsoft ','') build $($os.Bu
 $biosVer = (([string]$bios.SMBIOSBIOSVersion) -replace '\s+', ' ' -replace ' \)', ')').Trim()
 $idade = ((Get-Date) - $bios.ReleaseDate).TotalDays / 365
 $st = if ($idade -le 2) { 'ok' } else { 'atencao' }
-$dica = if ($st -eq 'ok') { 'Atualizada' } else { 'Antiga - atualizar pelo Lenovo System Update' }
+$dica = if ($st -eq 'ok') { 'Atualizada' } else { 'Antiga - atualize pelo site ou ferramenta do fabricante' }
 Card 'BIOS' "$biosVer ($($bios.ReleaseDate.ToString('MM/yyyy')))" $st $dica
 
 # ---------- monta o HTML ----------

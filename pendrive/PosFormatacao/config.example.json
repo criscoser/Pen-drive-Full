@@ -3,12 +3,12 @@
   "WifiSenha": "",
   "OfficeProduto": "O365BusinessRetail",
   "AtualizarProgramas": false,
+  "Otimizar": true,
   "Programas": [
     "Google.Chrome",
     "7zip.7zip",
     "Adobe.Acrobat.Reader.64-bit",
     "VideoLAN.VLC",
-    "AnyDesk.AnyDesk",
-    "Lenovo.SystemUpdate"
+    "AnyDesk.AnyDesk"
   ]
 }

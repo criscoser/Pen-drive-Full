@@ -12,7 +12,7 @@ Pendrive multiboot de manutenção baseado no [Ventoy](https://github.com/ventoy
 
 ## 🇧🇷 Português
 
-> ⚠️ **Projeto em desenvolvimento.** Testado em notebooks Lenovo ThinkPad T490 com Windows 11 Pro. Use por sua conta e risco e teste numa máquina antes de usar nas outras.
+> ⚠️ **Projeto em desenvolvimento.** Feito para qualquer PC com Windows 10/11, de qualquer marca. Testado até agora em notebooks Lenovo ThinkPad T490 com Windows 11 Pro. Use por sua conta e risco e teste numa máquina antes de usar nas outras.
 
 ### O que ele faz
 
@@ -25,12 +25,13 @@ Pendrive multiboot de manutenção baseado no [Ventoy](https://github.com/ventoy
 1. Energia: não dorme na tomada durante o processo.
 2. Wi-Fi: se não houver internet, lista as redes disponíveis para a pessoa escolher e digitar a senha (e pode salvar no pendrive para as próximas máquinas).
 3. Limpeza: remove apps desnecessários e propagandas, mostra extensões de arquivo.
-4. Programas via `winget`: Chrome, 7-Zip, Adobe Reader, VLC, AnyDesk, Lenovo System Update. **Pula o que já está instalado.**
-5. Microsoft 365 Apps (Office) pelo instalador oficial da Microsoft.
-6. Chrome como navegador padrão e fixado na barra de tarefas, sem perguntas.
-7. Drivers e BIOS Lenovo.
-8. Windows Update.
-9. Renomeia o PC (`MODELO-SÉRIE`) e gera o relatório.
+4. **Privacidade e otimização:** telemetria no mínimo que o Windows aceita, sem envio de dados de uso, sem Bing/Copilot/Recall, tarefas de coleta desligadas, visual mais leve, Inicialização Rápida desligada, limpeza automática e TRIM do SSD. Defender e Windows Update continuam ligados.
+5. Programas via `winget`: Chrome, 7-Zip, Adobe Reader, VLC, AnyDesk. **Pula o que já está instalado.**
+6. Microsoft 365 Apps (Office) pelo instalador oficial da Microsoft.
+7. Chrome como navegador padrão e fixado na barra de tarefas, sem perguntas.
+8. Drivers: Windows Update em qualquer marca; em computadores Lenovo, também drivers e BIOS pelo Lenovo System Update.
+9. Windows Update.
+10. Renomeia o PC (`MODELO-SÉRIE`) e gera o relatório.
 
 **Relatório visual**
 - Cartões verde/amarelo/vermelho para SSD, bateria, memória, drivers, ativação do Windows e BIOS, com uma frase dizendo o que fazer.
@@ -74,7 +75,7 @@ A definir antes da publicação. As ferramentas de terceiros (Ventoy, MemTest86,
 
 ## 🇺🇸 English
 
-> ⚠️ **Work in progress.** Tested on Lenovo ThinkPad T490 laptops with Windows 11 Pro. Use at your own risk and test on one machine first.
+> ⚠️ **Work in progress.** Built for any Windows 10/11 PC of any brand. So far tested on Lenovo ThinkPad T490 laptops with Windows 11 Pro. Use at your own risk and test on one machine first.
 
 > 🌐 The pendrive itself is currently in Brazilian Portuguese. A language selector (Portuguese / US English) is on the [roadmap](ROADMAP.md).
 
@@ -89,12 +90,13 @@ A definir antes da publicação. As ferramentas de terceiros (Ventoy, MemTest86,
 1. Power: no sleep on AC while it runs.
 2. Wi-Fi: if there is no internet, lists the nearby networks so the user picks one and types the password (optionally saved on the drive for the next machines).
 3. Cleanup: removes bloatware and ads, shows file extensions.
-4. Apps via `winget`: Chrome, 7-Zip, Adobe Reader, VLC, AnyDesk, Lenovo System Update. **Skips anything already installed.**
-5. Microsoft 365 Apps (Office) through Microsoft's official deployment tool.
-6. Chrome as default browser and pinned to the taskbar, with no prompts.
-7. Lenovo drivers and BIOS.
-8. Windows Update.
-9. Renames the PC (`MODEL-SERIAL`) and builds the report.
+4. **Privacy and optimization:** telemetry at the lowest level Windows accepts, no usage data sent, no Bing/Copilot/Recall, data-collection tasks disabled, lighter visuals, Fast Startup off, automatic cleanup and SSD TRIM. Defender and Windows Update stay on.
+5. Apps via `winget`: Chrome, 7-Zip, Adobe Reader, VLC, AnyDesk. **Skips anything already installed.**
+6. Microsoft 365 Apps (Office) through Microsoft's official deployment tool.
+7. Chrome as default browser and pinned to the taskbar, with no prompts.
+8. Drivers: Windows Update on any brand; on Lenovo machines, drivers and BIOS through Lenovo System Update too.
+9. Windows Update.
+10. Renames the PC (`MODEL-SERIAL`) and builds the report.
 
 **Visual report**
 - Green/yellow/red cards for SSD, battery, RAM, drivers, Windows activation and BIOS, each with a plain-language next step.
