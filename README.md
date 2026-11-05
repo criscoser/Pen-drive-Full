@@ -39,7 +39,11 @@ Pendrive multiboot de manutenção baseado no [Ventoy](https://github.com/ventoy
 **Relatório visual**
 - Cartões verde/amarelo/vermelho para SSD, bateria, memória, drivers, ativação do Windows e BIOS, com uma frase dizendo o que fazer.
 - `Relatorios/Resumo-das-maquinas.html` no pendrive compara todas as máquinas já atendidas.
-- `RELATORIO.bat` gera só o relatório, sem refazer a pós-formatação.
+- `RELATORIO.bat` gera só o relatório, sem alterar nada no PC.
+
+**PC em uso (`OTIMIZAR.bat`)**
+- Para um computador que já tem arquivos e programas importantes: cria um **ponto de restauração** antes, aplica só privacidade, otimização e limpeza de temporários, e gera o relatório.
+- **Não** desinstala programas ou apps, **não** mexe em arquivos, **não** troca navegador nem barra de tarefas, **não** renomeia o PC e **não** atualiza a BIOS.
 - O relatório mostra quanto tempo levou cada etapa.
 
 ![Resumo das máquinas](docs/resumo-exemplo.png)
@@ -50,6 +54,7 @@ Pendrive multiboot de manutenção baseado no [Ventoy](https://github.com/ventoy
 pendrive/                       → conteúdo da raiz do pendrive Ventoy
 ├── POS-FORMATACAO.bat          → pós-formatação completa
 ├── RELATORIO.bat               → só o relatório
+├── OTIMIZAR.bat                → só otimizar um PC em uso
 ├── PosFormatacao/
 │   ├── pos-formatacao.ps1      → o script principal
 │   └── config.example.json     → copie para config.json e preencha
@@ -108,7 +113,11 @@ A definir antes da publicação. As ferramentas de terceiros (Ventoy, MemTest86,
 **Visual report**
 - Green/yellow/red cards for SSD, battery, RAM, drivers, Windows activation and BIOS, each with a plain-language next step.
 - `Relatorios/Resumo-das-maquinas.html` on the drive compares every machine serviced.
-- `RELATORIO.bat` builds only the report, without re-running the post-install steps.
+- `RELATORIO.bat` builds only the report, without changing anything on the PC.
+
+**PC in use (`OTIMIZAR.bat`)**
+- For a computer that already has important files and apps: creates a **restore point** first, applies only privacy, optimization and temp-file cleanup, and builds the report.
+- It does **not** uninstall apps, touch files, change the browser or taskbar, rename the PC or update the BIOS.
 - The report shows how long each step took.
 
 ### Build your own

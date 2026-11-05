@@ -18,6 +18,7 @@
 - Linux Mint XFCE, Kali Linux, Windows 10, SystemRescue e netboot.xyz / Linux Mint XFCE, Kali Linux, Windows 10, SystemRescue and netboot.xyz
 - Teste de portas USB (USB Device Tree Viewer, CrystalDiskMark) / USB port testing
 - Lista de SHA-256 oficiais das ISOs / Official ISO SHA-256 list
+- Modo só otimizar para PC em uso, com ponto de restauração / Optimize-only mode for PCs in use, with a restore point
 
 ## 🔜 Próximos / Next
 - [ ] **Idioma: português e inglês (EUA), com escolha pelo usuário** / **Language: Portuguese and US English, user-selectable** (menu do Ventoy, scripts, relatório, painel / Ventoy menu, scripts, report, panel)

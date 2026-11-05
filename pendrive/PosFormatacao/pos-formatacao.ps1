@@ -1,4 +1,4 @@
-﻿param([switch]$SoRelatorio)
+﻿param([switch]$SoRelatorio, [switch]$SoOtimizar)
 # =====================================================================
 #  POS-FORMATACAO - pendrive Ventoy
 #  Roda sozinho no 1o login (autounattend) ou com dois cliques em
@@ -45,7 +45,7 @@ if (Test-Path $cfgArq) {
 # Eleva para administrador se precisar
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
-    Start-Process powershell.exe -Verb RunAs -ArgumentList ("-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" + $(if ($SoRelatorio) { ' -SoRelatorio' } else { '' }))
+    Start-Process powershell.exe -Verb RunAs -ArgumentList ("-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" + $(if ($SoRelatorio) { ' -SoRelatorio' } elseif ($SoOtimizar) { ' -SoOtimizar' } else { '' }))
     exit
 }
 
@@ -55,7 +55,7 @@ $Pendrive = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
 $Work = 'C:\PosFormatacao'
 New-Item -ItemType Directory -Force -Path $Work | Out-Null
 Start-Transcript -Path (Join-Path $Work 'log.txt') -Append | Out-Null
-$Host.UI.RawUI.WindowTitle = 'POS-FORMATACAO - nao feche esta janela'
+$Host.UI.RawUI.WindowTitle = $(if ($SoOtimizar) { 'OTIMIZAR - nao feche esta janela' } else { 'POS-FORMATACAO - nao feche esta janela' })
 $resumo = New-Object System.Collections.Generic.List[string]
 
 $tempos = New-Object System.Collections.Generic.List[object]
@@ -233,9 +233,13 @@ function Mostra-JanelaInicial($catalogo, $marcado, $precisaWifi, $redes, $otimiz
     return $res
 }
 
+if ($SoOtimizar) {
+    Write-Host "OTIMIZAR iniciado em $(Get-Date). Nao feche esta janela." -ForegroundColor White
+} else {
 Write-Host "POS-FORMATACAO iniciado em $(Get-Date)." -ForegroundColor White
 Write-Host "Deixe o carregador LIGADO e nao feche esta janela." -ForegroundColor White
 Write-Host "Se o notebook reiniciar sozinho e abrir o menu do Ventoy, NAO escolha nada: ele entra no Windows em 10 s." -ForegroundColor Yellow
+}
 
 if (-not $SoRelatorio) {
 
@@ -261,14 +265,40 @@ foreach ($c in $Catalogo) { $marcado[$c.Id] = ($Programas -contains $c.Id) -or (
 
 # Internet agora? Se nao, tenta a rede salva no pendrive antes de abrir a janela
 $internet = Tem-Internet
-if (-not $internet -and $WifiNome) {
+if (-not $internet -and $WifiNome -and -not $SoOtimizar) {
     Write-Host "  Conectando na rede salva ($WifiNome)..."
     Novo-PerfilWifi $WifiNome $WifiSenha
     $internet = Espera-Internet 30
 }
 
 $escolha = $null
-if ($PerguntarProgramas) {
+if ($SoOtimizar) {
+    # Modo SO OTIMIZAR: para PC em uso. Nao instala, nao desinstala, nao renomeia.
+    $PerguntarProgramas = $false
+    foreach ($k in @($marcado.Keys)) { $marcado[$k] = $false }
+    $OfficeProduto = ''
+    $Otimizar = $true
+    Add-Type -AssemblyName System.Windows.Forms
+    $msg = "OTIMIZAR ESTE COMPUTADOR`n`n" +
+           "O que vai fazer:`n" +
+           "  - criar um ponto de restauracao antes (da para desfazer)`n" +
+           "  - desligar telemetria, propagandas, Bing, Copilot e Recall`n" +
+           "  - deixar o visual mais leve e limpar arquivos temporarios`n" +
+           "  - gerar o relatorio de saude da maquina`n`n" +
+           "O que NAO vai fazer:`n" +
+           "  - nao desinstala nenhum programa ou aplicativo`n" +
+           "  - nao mexe em documentos, fotos ou outros arquivos`n" +
+           "  - nao troca navegador, barra de tarefas nem o nome do computador`n" +
+           "  - nao atualiza BIOS nem instala programas`n`n" +
+           "Continuar?"
+    if ([System.Windows.Forms.MessageBox]::Show($msg, 'Otimizar', 'YesNo', 'Question') -ne 'Yes') {
+        Write-Host '  Cancelado. Nada foi alterado nesta maquina.' -ForegroundColor Yellow
+        Stop-Transcript | Out-Null
+        Start-Sleep 3
+        exit
+    }
+    $resumo.Add('[OK]    Modo so otimizar (nada instalado, desinstalado ou renomeado)')
+} elseif ($PerguntarProgramas) {
     try {
         Write-Host '  Abrindo a janela de escolha...'
         $redes = if (-not $internet) { Lista-RedesWifi } else { @() }
@@ -290,6 +320,23 @@ Write-Host ("  Vai instalar: " + $(if ($Programas.Count -or $OfficeProduto) { (@
 Write-Host '  A partir daqui e tudo automatico.' -ForegroundColor Green
 
 # ---------------- 1. ENERGIA ----------------
+if ($SoOtimizar) {
+    Etapa '1/4 Ponto de restauracao'
+    try { Enable-ComputerRestore -Drive "$env:SystemDrive\" -ErrorAction Stop } catch {}
+    # O Windows so cria um ponto a cada 24 h; isto libera criar agora
+    Set-Reg 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore' 'SystemRestorePointCreationFrequency' 0
+    $pontoOk = $false
+    try {
+        Checkpoint-Computer -Description 'Antes de otimizar (Pendrive Fodao)' -RestorePointType MODIFY_SETTINGS -ErrorAction Stop
+        $pontoOk = $true
+        Ok 'Ponto de restauracao criado: "Antes de otimizar (Pendrive Fodao)"'
+    } catch {
+        Falha "Ponto de restauracao NAO foi criado: $($_.Exception.Message)"
+        $r = [System.Windows.Forms.MessageBox]::Show("Nao foi possivel criar o ponto de restauracao.`nSem ele, as mudancas so podem ser desfeitas manualmente.`n`nContinuar mesmo assim?", 'Otimizar', 'YesNo', 'Warning')
+        if ($r -ne 'Yes') { Write-Host '  Cancelado. Nada foi alterado.' -ForegroundColor Yellow; Stop-Transcript | Out-Null; Start-Sleep 3; exit }
+    }
+    $naTomada = $true
+} else {
 Etapa '1/10 Energia'
 powercfg /change standby-timeout-ac 0 | Out-Null
 powercfg /change hibernate-timeout-ac 0 | Out-Null
@@ -298,8 +345,11 @@ Ok 'Na tomada o notebook nao dorme (tela apaga em 15 min)'
 $naTomada = $true
 try { $b = Get-CimInstance Win32_Battery -ErrorAction Stop; if ($b -and $b.BatteryStatus -eq 1) { $naTomada = $false } } catch {}
 if (-not $naTomada) { Write-Host '  ATENCAO: o notebook esta na BATERIA. Ligue o carregador.' -ForegroundColor Red }
+}
 
 # ---------------- 2. WI-FI ----------------
+$procOffice = $null
+if (-not $SoOtimizar) {
 Etapa '2/10 Internet'
 if ($internet) {
     Ok $(if ($WifiNome -and -not $escolha.Ssid) { "Internet funcionando (rede $WifiNome)" } else { 'Internet funcionando' })
@@ -345,8 +395,10 @@ if ($OfficeProduto -and -not $temOffice -and $internet) {
     } catch { Falha "Office: $($_.Exception.Message)" }
 }
 
+} # fim da etapa 2
+
 # ---------------- 3. LIMPEZA DO WINDOWS ----------------
-Etapa '3/10 Limpeza do Windows'
+Etapa $(if ($SoOtimizar) { '2/4 Propagandas e sugestoes' } else { '3/10 Limpeza do Windows' })
 $lixo = @(
     'Microsoft.BingNews','Microsoft.BingSearch','Microsoft.GamingApp','Microsoft.XboxApp',
     'Microsoft.XboxGamingOverlay','Microsoft.XboxGameOverlay','Microsoft.XboxSpeechToTextOverlay',
@@ -357,6 +409,7 @@ $lixo = @(
     'Microsoft.SkypeApp','Microsoft.WindowsMaps','7EE7776C.LinkedInforWindows',
     '*CandyCrush*','*Spotify*','*Disney*','*TikTok*','*Instagram*','*Facebook*'
 )
+if ($SoOtimizar) { Ok 'Nenhum aplicativo removido (modo so otimizar)' } else {
 $removidos = 0
 # Lista tudo uma vez so (consultar o Windows a cada app era o que deixava esta etapa lenta)
 $todosApps = @(Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue)
@@ -370,6 +423,7 @@ foreach ($n in $lixo) {
     }
 }
 Ok "$removidos aplicativos desnecessarios removidos"
+}
 
 # Politicas da maquina: sem propaganda/apps sugeridos, sem Widgets
 Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent' 'DisableWindowsConsumerFeatures' 1
@@ -381,19 +435,22 @@ Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' 'HideFirstRunExperience' 1
 Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' 'DefaultBrowserSettingEnabled' 0
 Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' 'StartupBoostEnabled' 0
 Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' 'BackgroundModeEnabled' 0
-Remove-Item "$env:PUBLIC\Desktop\Microsoft Edge.lnk" -Force -ErrorAction SilentlyContinue
+if (-not $SoOtimizar) { Remove-Item "$env:PUBLIC\Desktop\Microsoft Edge.lnk" -Force -ErrorAction SilentlyContinue }
 
 # Preferencias do usuario atual e dos proximos usuarios
 function Ajusta-Usuario($raiz) {
     $cdm = "$raiz\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
     foreach ($v in 'SystemPaneSuggestionsEnabled','SilentInstalledAppsEnabled','SoftLandingEnabled','PreInstalledAppsEnabled','OemPreInstalledAppsEnabled','SubscribedContent-338388Enabled','SubscribedContent-338389Enabled','SubscribedContent-353694Enabled','SubscribedContent-353696Enabled','SubscribedContent-310093Enabled') { Set-Reg $cdm $v 0 }
     $adv = "$raiz\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
-    Set-Reg $adv 'HideFileExt' 0                 # mostrar extensoes
-    Set-Reg $adv 'TaskbarAl' 0                   # barra a esquerda
+    if (-not $SoOtimizar) {
+        # Aparencia: so na pos-formatacao (num PC em uso a pessoa ja esta acostumada)
+        Set-Reg $adv 'HideFileExt' 0                 # mostrar extensoes
+        Set-Reg $adv 'TaskbarAl' 0                   # barra a esquerda
+        Set-Reg "$raiz\Software\Microsoft\Windows\CurrentVersion\Search" 'SearchboxTaskbarMode' 1  # pesquisa so com icone
+    }
     Set-Reg $adv 'Start_IrisRecommendations' 0   # sem dicas no Iniciar
     Set-Reg $adv 'Start_AccountNotifications' 0
     Set-Reg $adv 'ShowSyncProviderNotifications' 0
-    Set-Reg "$raiz\Software\Microsoft\Windows\CurrentVersion\Search" 'SearchboxTaskbarMode' 1  # pesquisa so com icone
 }
 Ajusta-Usuario 'HKCU:'
 reg.exe load 'HKU\PFDefault' 'C:\Users\Default\NTUSER.DAT' | Out-Null
@@ -402,10 +459,10 @@ if ($LASTEXITCODE -eq 0) {
     [gc]::Collect(); Start-Sleep 1
     reg.exe unload 'HKU\PFDefault' | Out-Null
 }
-Ok 'Propagandas e sugestoes desligadas, extensoes visiveis, barra a esquerda'
+Ok $(if ($SoOtimizar) { 'Propagandas e sugestoes desligadas' } else { 'Propagandas e sugestoes desligadas, extensoes visiveis, barra a esquerda' })
 
 # ---------------- 4. PRIVACIDADE E OTIMIZACAO ----------------
-Etapa '4/10 Privacidade e otimizacao'
+Etapa $(if ($SoOtimizar) { '3/4 Privacidade e otimizacao' } else { '4/10 Privacidade e otimizacao' })
 if (-not $Otimizar) { Ok 'Otimizacao desligada no config.json - pulada' }
 else {
     # --- Telemetria e envio de dados (o minimo que o Windows aceita) ---
@@ -543,6 +600,7 @@ function Instala-Winget($wg, $id) {
     return $cod
 }
 
+if (-not $SoOtimizar) {
 # ---------------- 5. PROGRAMAS ----------------
 Etapa '5/10 Programas'
 if (-not $Programas.Count) { Ok 'Nenhum programa selecionado' }
@@ -670,11 +728,12 @@ else {
 # ---------------- 8. WINDOWS UPDATE ----------------
 Etapa '9/10 Windows Update'
 if ($internet) { Start-Process UsoClient.exe -ArgumentList 'StartInteractiveScan' -ErrorAction SilentlyContinue; Ok 'Busca do Windows Update iniciada (continua em segundo plano)' }
+} # fim das etapas 5-9
 
 } # fim das etapas 1-8
 if ($SoRelatorio) { $internet = $false; $resumo.Add('[OK]    Somente relatorio (pos-formatacao nao foi executada agora)') }
 # ---------------- 9. RELATORIO E NOME ----------------
-Etapa '10/10 Relatorio da maquina'
+Etapa $(if ($SoOtimizar) { '4/4 Relatorio da maquina' } elseif ($SoRelatorio) { 'Relatorio da maquina' } else { '10/10 Relatorio da maquina' })
 function Esc($t) { [System.Net.WebUtility]::HtmlEncode([string]$t) }
 
 $cs   = Get-CimInstance Win32_ComputerSystem
@@ -913,15 +972,23 @@ $linhas
 Write-Host "  Relatorio salvo na Area de Trabalho e no pendrive (pasta Relatorios)" -ForegroundColor Green
 try { Start-Process (Join-Path $desk $arqRel) } catch {}
 
-if ($env:COMPUTERNAME -ne $novoNome) {
+if (-not $SoOtimizar -and -not $SoRelatorio -and $env:COMPUTERNAME -ne $novoNome) {
     try { Rename-Computer -NewName $novoNome -Force -ErrorAction Stop; Write-Host "  Nome do computador sera $novoNome apos reiniciar" -ForegroundColor Green } catch { Write-Host "  Nao foi possivel renomear: $($_.Exception.Message)" -ForegroundColor Yellow }
 }
 
 Stop-Transcript | Out-Null
 Write-Host "`n============================================================" -ForegroundColor Green
 Write-Host " PRONTO! O relatorio abriu no navegador (e esta na Area de Trabalho)." -ForegroundColor Green
+if ($SoOtimizar) {
+    Write-Host " 1) TIRE O PENDRIVE e reinicie o computador para tudo valer." -ForegroundColor Yellow
+    Write-Host " 2) Para DESFAZER: menu Iniciar > 'Criar um ponto de restauracao' >" -ForegroundColor Green
+    Write-Host "    Restauracao do Sistema > 'Antes de otimizar (Pendrive Fodao)'." -ForegroundColor Green
+} elseif ($SoRelatorio) {
+    Write-Host " Pode tirar o pendrive. Nenhuma configuracao desta maquina foi alterada." -ForegroundColor Green
+} else {
 Write-Host " 1) TIRE O PENDRIVE." -ForegroundColor Yellow
 Write-Host " 2) Com o CARREGADOR LIGADO, reinicie o notebook para concluir" -ForegroundColor Green
 Write-Host " drivers, BIOS e o novo nome do computador." -ForegroundColor Green
+}
 Write-Host "============================================================" -ForegroundColor Green
 Read-Host "`nAperte ENTER para fechar"

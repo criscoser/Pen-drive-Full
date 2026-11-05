@@ -8,7 +8,13 @@ MAQUINA JA FORMATADA:
 FORMATACAO NOVA (Ventoy + autounattend.xml):
   O script roda sozinho no primeiro login. Deixe o pendrive conectado ate aparecer PRONTO.
 
-SO O RELATORIO (sem refazer nada): dois cliques em RELATORIO.bat.
+PC EM USO, SO OTIMIZAR (com arquivos e programas importantes): dois cliques em OTIMIZAR.bat.
+  Cria um ponto de restauracao antes, desliga telemetria/propagandas/Copilot, deixa o visual
+  mais leve, limpa temporarios e gera o relatorio. NAO desinstala nada, NAO mexe em arquivos,
+  NAO troca navegador nem barra de tarefas, NAO renomeia o PC e NAO atualiza a BIOS.
+  Para desfazer: Iniciar > "Criar um ponto de restauracao" > Restauracao do Sistema.
+
+SO O RELATORIO (nao altera nada no PC): dois cliques em RELATORIO.bat.
 O relatorio abre no navegador, fica na Area de Trabalho e na pasta Relatorios do pendrive.
 Abra Relatorios\Resumo-das-maquinas.html para ver todas as maquinas lado a lado.
 
