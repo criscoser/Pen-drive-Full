@@ -75,13 +75,13 @@ if ($painelOk) {
 }
 
 # Plano vindo do painel: o que fazer, instalar e remover
-$P = $null
+$PlanoPF = $null
 if ($Plano) {
     try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
-    try { $P = Get-Content $Plano -Raw -Encoding UTF8 | ConvertFrom-Json }
+    try { $PlanoPF = Get-Content $Plano -Raw -Encoding UTF8 | ConvertFrom-Json }
     catch { Write-Host "  [FALHA] Plano invalido: $($_.Exception.Message)"; exit 1 }
-    $SoRelatorio = ($P.Modo -eq 'relatorio')
-    $SoOtimizar  = ($P.Modo -eq 'otimizar')
+    $SoRelatorio = ($PlanoPF.Modo -eq 'relatorio')
+    $SoOtimizar  = ($PlanoPF.Modo -eq 'otimizar')
 }
 
 $ErrorActionPreference = 'Continue'
@@ -111,11 +111,11 @@ function Etapa($t) {
     $tot = [Math]::Max($script:Passos.Count, $script:passoN)
     $script:etapaAtual = $t; $script:inicioEtapa = $relogio.Elapsed
     Write-Host "`n===== [$($script:passoN)/$tot] $t =====" -ForegroundColor Cyan
-    if ($script:P) { Write-Host "##PASSO|$($script:passoN)|$tot|$t" }
+    if ($script:PlanoPF) { Write-Host "##PASSO|$($script:passoN)|$tot|$t" }
 }
 # O que fazer: com plano (painel) vem das caixinhas; sem plano, o comportamento antigo de cada modo
 function Quer($k) {
-    if ($script:P) { return [bool]$script:P.Opcoes.$k }
+    if ($script:PlanoPF) { return [bool]$script:PlanoPF.Opcoes.$k }
     if ($k -eq 'Ponto')    { return [bool]$script:SoOtimizar }
     if ($k -eq 'Renomear') { return (-not $script:SoOtimizar -and -not $script:SoRelatorio) }
     if ($k -eq 'Propagandas') { return $true }
@@ -313,22 +313,22 @@ foreach ($c in $Catalogo) { $marcado[$c.Id] = ($Programas -contains $c.Id) -or (
 
 # Internet agora? Se nao, tenta a rede salva no pendrive antes de abrir a janela
 $internet = Tem-Internet
-if (-not $internet -and $WifiNome -and -not $SoOtimizar -and -not $P) {
+if (-not $internet -and $WifiNome -and -not $SoOtimizar -and -not $PlanoPF) {
     Write-Host "  Conectando na rede salva ($WifiNome)..."
     Novo-PerfilWifi $WifiNome $WifiSenha
     $internet = Espera-Internet 30
 }
 
 $escolha = $null
-if ($P) {
+if ($PlanoPF) {
     foreach ($k in @($marcado.Keys)) { $marcado[$k] = $false }
-    foreach ($id in @($P.Instalar)) {
+    foreach ($id in @($PlanoPF.Instalar)) {
         if (-not $id) { continue }
         if (-not ($Catalogo.Id -contains $id)) { $Catalogo += [pscustomobject]@{ Nome=$id; Id=$id; Reg='' } }
         $marcado[$id] = $true
     }
-    $marcado['OFFICE'] = [bool]$P.Office
-    $escolha = [pscustomobject]@{ Ok=$true; Marcado=$marcado; Otimizar=$true; Ssid=[string]$P.Wifi.Ssid; Senha=[string]$P.Wifi.Senha; Salvar=[bool]$P.Wifi.Salvar }
+    $marcado['OFFICE'] = [bool]$PlanoPF.Office
+    $escolha = [pscustomobject]@{ Ok=$true; Marcado=$marcado; Otimizar=$true; Ssid=[string]$PlanoPF.Wifi.Ssid; Senha=[string]$PlanoPF.Wifi.Senha; Salvar=[bool]$PlanoPF.Wifi.Salvar }
 } elseif ($SoOtimizar) {
     # Modo SO OTIMIZAR: para PC em uso. Nao instala, nao desinstala, nao renomeia.
     $PerguntarProgramas = $false
@@ -377,7 +377,7 @@ Write-Host ("  Vai instalar: " + $(if ($Programas.Count -or $OfficeProduto) { (@
 Write-Host '  A partir daqui e tudo automatico.' -ForegroundColor Green
 
 $lixoPlano = $null
-if ($P) { $lixoPlano = @($P.Remover | Where-Object { $_ }) } elseif ($SoOtimizar) { $lixoPlano = @() }
+if ($PlanoPF) { $lixoPlano = @($PlanoPF.Remover | Where-Object { $_ }) } elseif ($SoOtimizar) { $lixoPlano = @() }
 $temRemocao = ($null -eq $lixoPlano) -or ($lixoPlano.Count -gt 0)
 $precisaNet = ($Programas.Count -gt 0) -or [bool]$OfficeProduto -or (Quer 'Drivers') -or (Quer 'WindowsUpdate')
 $Passos = @(@(
@@ -404,7 +404,7 @@ if (Quer 'Ponto') {
         Falha "Ponto de restauracao NAO foi criado: $($_.Exception.Message)"
         Add-Type -AssemblyName System.Windows.Forms
         $r = [System.Windows.Forms.MessageBox]::Show("Nao foi possivel criar o ponto de restauracao.`nSem ele, as mudancas so podem ser desfeitas manualmente.`n`nContinuar mesmo assim?", 'Otimizar', 'YesNo', 'Warning')
-        if ($r -ne 'Yes') { Write-Host '  Cancelado. Nada foi alterado.' -ForegroundColor Yellow; Stop-Transcript | Out-Null; if ($P) { exit 2 }; Start-Sleep 3; exit }
+        if ($r -ne 'Yes') { Write-Host '  Cancelado. Nada foi alterado.' -ForegroundColor Yellow; Stop-Transcript | Out-Null; if ($PlanoPF) { exit 2 }; Start-Sleep 3; exit }
     }
 }
 if (Quer 'Energia') {
@@ -1064,7 +1064,7 @@ $linhas
 "@ | Out-File (Join-Path $pasta 'Resumo-das-maquinas.html') -Encoding utf8
 } catch { Write-Host "  (aviso) nao foi possivel gravar no pendrive: $($_.Exception.Message)" -ForegroundColor DarkYellow }
 Write-Host "  Relatorio salvo na Area de Trabalho e no pendrive (pasta Relatorios)" -ForegroundColor Green
-if ($P) { Write-Host "##RELATORIO|$(Join-Path $desk $arqRel)" }
+if ($PlanoPF) { Write-Host "##RELATORIO|$(Join-Path $desk $arqRel)" }
 try { Start-Process (Join-Path $desk $arqRel) } catch {}
 
 if ((Quer 'Renomear') -and $env:COMPUTERNAME -ne $novoNome) {
@@ -1086,4 +1086,4 @@ Write-Host " 2) Com o CARREGADOR LIGADO, reinicie o notebook para concluir" -For
 Write-Host " drivers, BIOS e o novo nome do computador." -ForegroundColor Green
 }
 Write-Host "============================================================" -ForegroundColor Green
-if ($P) { Fecha-Etapa; Write-Host '##FIM' } else { Read-Host "`nAperte ENTER para fechar" }
+if ($PlanoPF) { Fecha-Etapa; Write-Host '##FIM' } else { Read-Host "`nAperte ENTER para fechar" }
