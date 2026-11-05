@@ -129,8 +129,8 @@ pt = @{
   o_Ponto='ponto de restauração'; o_Privacidade='privacidade: telemetria, Bing, Copilot, Recall'
   o_Propagandas='propagandas e sugestões'; o_Visual='visual leve (sem transparência e animações)'
   o_Temporarios='limpar temporários'; o_InicioRapido='desligar inicialização rápida'
-  o_Aparencia='barra à esquerda + extensões visíveis'; o_Chrome='Chrome padrão + barra de tarefas'
-  o_Drivers='drivers e BIOS do fabricante'; o_WindowsUpdate='Windows Update'; o_Renomear='renomear PC → MODELO-SÉRIE'
+  o_Aparencia='barra à esquerda + extensões visíveis'; o_Chrome='Chrome padrão + barra (Edge escondido)'
+  o_Drivers='drivers e BIOS do fabricante'; o_WindowsUpdate='Windows Update (instala tudo, até drivers)'; o_Renomear='renomear PC → MODELO-SÉRIE'
   obrig='obrigatório'; instalado='instalado'
   hintInst='> o que já está no PC aparece apagado e não é baixado de novo'
   hintRem='> {0} apps encontrados neste PC · marque o que quer tirar'; hintRem0='> nenhum app desnecessário encontrado neste PC'
@@ -139,7 +139,7 @@ pt = @{
   sairQ='Ainda está executando. Fechar a janela NÃO para o processo, ele continua escondido.`n`nFechar mesmo assim?'
   semBat='sem bateria'; desktop='desktop'; ativado='ativado'; naoAtivado='NÃO ativado'
   drvOk='drivers ok'; drvFalta='{0} sem driver'
-  cat_prop='propaganda'; cat_jogo='jogos'; cat_com='comunicação'; cat_vid='vídeo'; cat_mus='música'; cat_soc='rede social'; cat_ia='IA'; cat_app='app'
+  cat_prop='propaganda'; cat_jogo='jogos'; cat_com='comunicação'; cat_vid='vídeo'; cat_mus='música'; cat_soc='rede social'; cat_ia='IA'; cat_app='app'; cat_av='antivírus de fábrica'
 }
 en = @{
   sub='> install · optimize · diagnose'; scan='> scanning this PC...'
@@ -155,8 +155,8 @@ en = @{
   o_Ponto='restore point'; o_Privacidade='privacy: telemetry, Bing, Copilot, Recall'
   o_Propagandas='ads and suggestions'; o_Visual='lighter visuals (no transparency/animations)'
   o_Temporarios='clean temporary files'; o_InicioRapido='turn off fast startup'
-  o_Aparencia='taskbar left + file extensions'; o_Chrome='Chrome as default + taskbar'
-  o_Drivers='manufacturer drivers and BIOS'; o_WindowsUpdate='Windows Update'; o_Renomear='rename PC → MODEL-SERIAL'
+  o_Aparencia='taskbar left + file extensions'; o_Chrome='Chrome as default + taskbar (Edge hidden)'
+  o_Drivers='manufacturer drivers and BIOS'; o_WindowsUpdate='Windows Update (installs all, incl. drivers)'; o_Renomear='rename PC → MODEL-SERIAL'
   obrig='required'; instalado='installed'
   hintInst='> apps already on this PC are greyed out and not downloaded again'
   hintRem='> {0} apps found on this PC · tick what to remove'; hintRem0='> no unnecessary apps found on this PC'
@@ -165,7 +165,7 @@ en = @{
   sairQ='Still running. Closing the window does NOT stop it, it keeps running hidden.`n`nClose anyway?'
   semBat='no battery'; desktop='desktop'; ativado='activated'; naoAtivado='NOT activated'
   drvOk='drivers ok'; drvFalta='{0} missing driver(s)'
-  cat_prop='ads'; cat_jogo='games'; cat_com='communication'; cat_vid='video'; cat_mus='music'; cat_soc='social'; cat_ia='AI'; cat_app='app'
+  cat_prop='ads'; cat_jogo='games'; cat_com='communication'; cat_vid='video'; cat_mus='music'; cat_soc='social'; cat_ia='AI'; cat_app='app'; cat_av='trial antivirus'
 }
 }
 function T($k) { $v = $script:TX[$script:L][$k]; if ($null -eq $v) { $v = $script:TX['pt'][$k] }; if ($null -eq $v) { $v = $k }; return ($v -replace '`n', "`n") }
@@ -585,7 +585,25 @@ $CatRem = @(
     @('Mapas',                @('Microsoft.WindowsMaps'), 'cat_app'),
     @('Hub de Comentários',   @('Microsoft.WindowsFeedbackHub'), 'cat_app'),
     @('Power Automate',       @('Microsoft.PowerAutomateDesktop'), 'cat_app'),
-    @('Realidade Misturada',  @('Microsoft.MixedReality.Portal'), 'cat_app')
+    @('Realidade Misturada',  @('Microsoft.MixedReality.Portal'), 'cat_app'),
+    @('Outlook (novo)',       @('Microsoft.OutlookForWindows'), 'cat_com'),
+    @('WhatsApp (pré-instalado)', @('*WhatsApp*'), 'cat_com'),
+    @('Vincular ao Celular',  @('Microsoft.YourPhone','MicrosoftWindows.CrossDevice'), 'cat_app'),
+    @('Microsoft To Do',      @('Microsoft.Todos'), 'cat_app'),
+    @('Family',               @('MicrosoftCorporationII.MicrosoftFamily'), 'cat_app'),
+    @('Obter Ajuda',          @('Microsoft.GetHelp'), 'cat_app'),
+    @('Dev Home',             @('Microsoft.Windows.DevHome'), 'cat_app'),
+    @('Bing Finanças/Esportes/Viagens', @('Microsoft.BingFinance','Microsoft.BingSports','Microsoft.BingTravel'), 'cat_prop'),
+    @('Mensagens / Carteira / Mobile Plans', @('Microsoft.Messaging','Microsoft.Wallet','Microsoft.OneConnect'), 'cat_app'),
+    @('OneNote (versão antiga)', @('Microsoft.Office.OneNote'), 'cat_app'),
+    @('Visualizador 3D / Paint 3D', @('Microsoft.Microsoft3DViewer','Microsoft.Print3D','Microsoft.3DBuilder'), 'cat_app'),
+    @('Netflix',              @('*Netflix*'), 'cat_vid'),
+    @('Prime Video',          @('*PrimeVideo*'), 'cat_vid'),
+    @('ESPN / Hulu',          @('*ESPN*','*Hulu*'), 'cat_vid'),
+    @('Twitter / X',          @('*Twitter*'), 'cat_soc'),
+    @('Jogos da King',        @('*king.com*','*BubbleWitch*','*MarchofEmpires*'), 'cat_prop'),
+    @('McAfee (Store)',       @('*McAfee*'), 'cat_av'),
+    @('Norton (Store)',       @('*Norton*'), 'cat_av')
 )
 
 $LinhasOpc = @(); $LinhasInst = @(); $LinhasRem = @()
@@ -730,7 +748,7 @@ function Linha-Log($t) {
     $cor = $script:C.Texto
     if ($t -match '\[OK\]') { $cor = $script:C.Ok }
     elseif ($t -match '\[FALHA\]|ATENCAO|^!! ') { $cor = $script:C.Ruim }
-    elseif ($t -match '\(aviso\)|\[vai baixar\]') { $cor = $script:C.Aviso }
+    elseif ($t -match '\(aviso\)|\[vai baixar\]|CLIQUE|>>>') { $cor = $script:C.Aviso }
     elseif ($t -match '\(levou ') { $cor = $script:C.Mudo }
     elseif ($t -match '^={10,}') { $cor = $script:C.Acento }
     Escreve $r ((Get-Date -Format 'HH:mm:ss') + ' ') $script:C.Mudo

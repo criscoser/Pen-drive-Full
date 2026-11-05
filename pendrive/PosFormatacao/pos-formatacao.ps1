@@ -135,6 +135,65 @@ function Set-Reg($path, $name, $value, $type = 'DWord') {
     }
 }
 
+# Energia: guarda os tempos atuais (para devolver no fim) - le o indice de CA do powercfg
+function Le-Energia($sub, $item) {
+    $hex = @([regex]::Matches((powercfg /query SCHEME_CURRENT $sub $item | Out-String), '0x[0-9a-fA-F]{8}') | ForEach-Object { $_.Value })
+    if ($hex.Count -ge 2) { return [Convert]::ToInt32($hex[$hex.Count - 2], 16) }   # penultimo = na tomada (CA), ultimo = bateria (CC)
+    return $null
+}
+
+# Windows Update de verdade: procura, baixa e instala (inclui drivers), sem reiniciar sozinho
+function Instala-Atualizacoes($limiteMin) {
+    $res = [ordered]@{ Instaladas = 0; Drivers = 0; Falhas = 0; Reiniciar = $false; Restantes = 0; Erro = $null }
+    $inicio = Get-Date
+    try {
+        $sess = New-Object -ComObject Microsoft.Update.Session
+        $sess.ClientApplicationID = 'Pendrive Full'
+        for ($rodada = 1; $rodada -le 2; $rodada++) {
+            Write-Host "  Procurando atualizacoes (rodada $rodada)..."
+            $achou = $sess.CreateUpdateSearcher().Search('IsInstalled=0 and IsHidden=0')
+            $lista = @()
+            foreach ($u in $achou.Updates) {
+                # Fica de fora: versoes de teste e troca de versao do Windows (ex.: 24H2 -> 25H2)
+                if ($u.Title -match 'Preview|Pr.via|Insider|Feature update|Atualiza..o de recursos|Windows 1[01],? vers') { continue }
+                $lista += $u
+            }
+            if (-not $lista.Count) { if ($rodada -eq 1) { Write-Host '  Nenhuma atualizacao pendente.' }; break }
+            Write-Host "  $($lista.Count) atualizacao(oes) para instalar"
+            $n = 0
+            foreach ($u in $lista) {
+                if (((Get-Date) - $inicio).TotalMinutes -gt $limiteMin) { $res.Restantes += ($lista.Count - $n); break }
+                $n++
+                Write-Host ("    [{0}/{1}] {2}" -f $n, $lista.Count, $u.Title)
+                try {
+                    if (-not $u.EulaAccepted) { $u.AcceptEula() }
+                    $col = New-Object -ComObject Microsoft.Update.UpdateColl
+                    [void]$col.Add($u)
+                    $dl = $sess.CreateUpdateDownloader(); $dl.Updates = $col; [void]$dl.Download()
+                    $ins = $sess.CreateUpdateInstaller(); $ins.Updates = $col
+                    $r = $ins.Install()
+                    if ($r.ResultCode -eq 2 -or $r.ResultCode -eq 3) {
+                        $res.Instaladas++
+                        if ($u.Type -eq 2) { $res.Drivers++ }
+                        if ($r.RebootRequired) { $res.Reiniciar = $true }
+                    } else { $res.Falhas++; Write-Host "      (aviso) nao instalou (codigo $($r.ResultCode))" -ForegroundColor DarkYellow }
+                } catch { $res.Falhas++; Write-Host "      (aviso) $($_.Exception.Message)" -ForegroundColor DarkYellow }
+            }
+            # Depois de atualizacao que pede reinicio, a 2a rodada nao acha mais nada util
+            if ($res.Reiniciar -or $res.Restantes) { break }
+        }
+    } catch { $res.Erro = $_.Exception.Message }
+    return $res
+}
+
+# Chrome e o navegador padrao deste usuario? (o Windows guarda a escolha em UserChoice)
+function Chrome-EhPadrao {
+    try {
+        $id = (Get-ItemProperty 'HKCU:\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice' -ErrorAction Stop).ProgId
+        return ($id -like 'ChromeHTML*')
+    } catch { return $false }
+}
+
 function Tem-Internet {
     try { (Invoke-WebRequest 'http://www.msftconnecttest.com/connecttest.txt' -UseBasicParsing -TimeoutSec 5).Content -like 'Microsoft Connect Test*' } catch { $false }
 }
@@ -385,7 +444,7 @@ $Passos = @(@(
     $(if ($temRemocao -or (Quer 'Propagandas') -or (Quer 'Aparencia')) { 'Limpeza' }),
     $(if ((Quer 'Privacidade') -or (Quer 'Visual') -or (Quer 'Temporarios') -or (Quer 'InicioRapido')) { 'Otimizacao' }),
     $(if ($Programas.Count) { 'Programas' }), $(if ($OfficeProduto) { 'Office' }), $(if (Quer 'Chrome') { 'Chrome' }),
-    $(if (Quer 'Drivers') { 'Drivers' }), $(if (Quer 'WindowsUpdate') { 'WindowsUpdate' }), 'Relatorio'
+    $(if (Quer 'Drivers') { 'Drivers' }), $(if (Quer 'WindowsUpdate') { 'WindowsUpdate' }), $(if (Quer 'Chrome') { 'ChromeConfirma' }), 'Relatorio'
 ) | Where-Object { $_ })
 
 # ---------------- 1. PONTO DE RESTAURACAO E ENERGIA ----------------
@@ -407,12 +466,19 @@ if (Quer 'Ponto') {
         if ($r -ne 'Yes') { Write-Host '  Cancelado. Nada foi alterado.' -ForegroundColor Yellow; Stop-Transcript | Out-Null; if ($PlanoPF) { exit 2 }; Start-Sleep 3; exit }
     }
 }
+$EnergiaOrig = $null
 if (Quer 'Energia') {
 Etapa 'Energia'
+# Guarda como estava, para devolver no fim (antes ficava 'nunca dormir na tomada' para sempre)
+$EnergiaOrig = [ordered]@{
+    Dormir   = Le-Energia 'SUB_SLEEP' 'STANDBYIDLE'
+    Hibernar = Le-Energia 'SUB_SLEEP' 'HIBERNATEIDLE'
+    Tela     = Le-Energia 'SUB_VIDEO' 'VIDEOIDLE'
+}
 powercfg /change standby-timeout-ac 0 | Out-Null
 powercfg /change hibernate-timeout-ac 0 | Out-Null
 powercfg /change monitor-timeout-ac 15 | Out-Null
-Ok 'Na tomada o notebook nao dorme (tela apaga em 15 min)'
+Ok 'Na tomada o notebook nao dorme enquanto a pos-formatacao roda (volta ao normal no fim)'
 $naTomada = $true
 try { $b = Get-CimInstance Win32_Battery -ErrorAction Stop; if ($b -and $b.BatteryStatus -eq 1) { $naTomada = $false } } catch {}
 if (-not $naTomada) { Write-Host '  ATENCAO: o notebook esta na BATERIA. Ligue o carregador.' -ForegroundColor Red }
@@ -477,7 +543,12 @@ $lixo = @(
     'Microsoft.MicrosoftOfficeHub','MSTeams','MicrosoftTeams','Microsoft.549981C3F5F10',
     'Microsoft.PowerAutomateDesktop','Microsoft.Copilot','Microsoft.Windows.Ai.Copilot.Provider','Microsoft.BingWeather','Microsoft.ZuneVideo','Microsoft.MixedReality.Portal',
     'Microsoft.SkypeApp','Microsoft.WindowsMaps','7EE7776C.LinkedInforWindows',
-    '*CandyCrush*','*Spotify*','*Disney*','*TikTok*','*Instagram*','*Facebook*'
+    'Microsoft.OutlookForWindows','Microsoft.Todos','Microsoft.YourPhone','MicrosoftWindows.CrossDevice',
+    'MicrosoftCorporationII.MicrosoftFamily','Microsoft.GetHelp','Microsoft.Windows.DevHome','Microsoft.BingTravel',
+    'Microsoft.BingFinance','Microsoft.BingSports','Microsoft.Messaging','Microsoft.OneConnect','Microsoft.Print3D',
+    'Microsoft.3DBuilder','Microsoft.Microsoft3DViewer','Microsoft.Wallet','Microsoft.Office.OneNote',
+    '*CandyCrush*','*Spotify*','*Disney*','*TikTok*','*Instagram*','*Facebook*','*Netflix*','*PrimeVideo*',
+    '*WhatsApp*','*Twitter*','*ESPN*','*Hulu*','*king.com*','*BubbleWitch*','*MarchofEmpires*','*McAfee*','*Norton*'
 )
 if ($null -ne $lixoPlano) { $lixo = @($lixoPlano) }
 if ($lixo.Count -or (Quer 'Propagandas') -or (Quer 'Aparencia')) {
@@ -749,7 +820,7 @@ elseif ($procOffice) {
 
 # ---------------- 6. CHROME PADRAO E BARRA DE TAREFAS ----------------
 if (Quer 'Chrome') {
-Etapa 'Chrome padrao e barra de tarefas'
+Etapa 'Chrome, Edge e barra de tarefas'
 if (Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe") {
     # Chrome sem perguntas: sem tela de boas-vindas, sem pedir para ser padrao
     $cp = 'HKLM:\SOFTWARE\Policies\Google\Chrome'
@@ -785,7 +856,26 @@ if (Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe") {
 '@ | Out-File "$Work\BarraDeTarefas.xml" -Encoding utf8
     Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer' 'StartLayoutFile' "$Work\BarraDeTarefas.xml" 'ExpandString'
     Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer' 'LockedStartLayout' 1
-    Ok 'Chrome sera o navegador padrao e ficara na barra (Edge sai da barra) - vale a partir do proximo login'
+
+    # Edge escondido (desinstalar o Edge quebra outros programas e o Windows Update o reinstala)
+    $eu = 'HKLM:\SOFTWARE\Policies\Microsoft\EdgeUpdate'
+    Set-Reg $eu 'CreateDesktopShortcutDefault' 0
+    Set-Reg $eu 'CreateDesktopShortcut{56EB18F8-B008-4CBD-B6D2-8C97FE7E9062}' 0
+    $ep = 'HKLM:\SOFTWARE\Policies\Microsoft\Edge'
+    Set-Reg $ep 'HideFirstRunExperience' 1
+    Set-Reg $ep 'DefaultBrowserSettingEnabled' 0
+    Set-Reg $ep 'StartupBoostEnabled' 0
+    Set-Reg $ep 'BackgroundModeEnabled' 0
+    foreach ($lnk in "$env:PUBLIC\Desktop\Microsoft Edge.lnk", "$([Environment]::GetFolderPath('Desktop'))\Microsoft Edge.lnk") { Remove-Item $lnk -Force -ErrorAction SilentlyContinue }
+
+    # A barra so se refaz quando o Explorer reinicia: apaga a barra atual e reinicia o Explorer agora
+    try {
+        Remove-Item 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Taskband' -Recurse -Force -ErrorAction SilentlyContinue
+        Stop-Process -Name explorer -Force -ErrorAction Stop
+        Start-Sleep 4
+        if (-not (Get-Process explorer -ErrorAction SilentlyContinue)) { Start-Process explorer.exe }
+        Ok 'Barra de tarefas refeita: Explorador + Chrome (Edge fora da barra e da area de trabalho)'
+    } catch { Ok 'Barra de tarefas sera refeita no proximo login (Chrome no lugar do Edge)' }
 } else { Falha 'Chrome nao instalado, padrao nao alterado' }
 }
 
@@ -809,9 +899,22 @@ else {
     Set-Reg $g 'MetricsEnabled' 'NO' 'String'
     if (-not $naTomada) { Write-Host '  Notebook na bateria: a BIOS so sera atualizada com o carregador ligado.' -ForegroundColor Yellow }
     if (Test-Path $tvsu) {
+        $antes = @(Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Error' }).Count
         $pl = Start-Process $tvsu -ArgumentList '/CM' -PassThru
-        try { $pl | Wait-Process -Timeout 1800 -ErrorAction Stop; Ok 'Lenovo System Update executado (drivers e BIOS)' }
-        catch { Ok 'Lenovo System Update continua trabalhando em segundo plano (nao desligue o notebook)' }
+        # O tvsu.exe so dispara o Tvsukernel.exe (quem baixa e instala) e fecha: e o Tvsukernel que tem que ser esperado
+        $k = $null
+        for ($i = 0; $i -lt 45 -and -not $k; $i++) { Start-Sleep 2; $k = Get-Process Tvsukernel -ErrorAction SilentlyContinue }
+        if ($k) {
+            Write-Host '  Lenovo System Update procurando, baixando e instalando drivers e BIOS (10 a 30 min)...'
+            try {
+                $k | Wait-Process -Timeout 2700 -ErrorAction Stop
+                $depois = @(Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Error' }).Count
+                Ok "Lenovo System Update concluido (dispositivos sem driver: $antes antes, $depois agora)"
+            } catch { Falha 'Lenovo System Update passou de 45 min - continua em segundo plano (nao desligue o notebook)' }
+        } else {
+            try { $pl | Wait-Process -Timeout 300 -ErrorAction Stop } catch {}
+            Falha 'Lenovo System Update nao iniciou a busca de drivers (o Windows Update tenta em seguida)'
+        }
     } else { Falha 'Lenovo System Update nao instalado' }
 }
 
@@ -820,8 +923,44 @@ else {
 # ---------------- 8. WINDOWS UPDATE ----------------
 if (Quer 'WindowsUpdate') {
 Etapa 'Windows Update'
-if ($internet) { Start-Process UsoClient.exe -ArgumentList 'StartInteractiveScan' -ErrorAction SilentlyContinue; Ok 'Busca do Windows Update iniciada (continua em segundo plano)' }
-else { Falha 'Windows Update nao iniciado (sem internet)' }
+if ($internet) {
+    Write-Host '  Instalando as atualizacoes do Windows e os drivers (pode levar de 10 a 60 min)...'
+    $wu = Instala-Atualizacoes 90
+    if ($wu.Erro) { Falha "Windows Update: $($wu.Erro)" }
+    else {
+        if ($wu.Instaladas -or -not $wu.Falhas) { Ok "Windows Update: $($wu.Instaladas) atualizacao(oes) instalada(s), $($wu.Drivers) de driver" }
+        if ($wu.Falhas)     { Falha "Windows Update: $($wu.Falhas) atualizacao(oes) nao instalaram - rode o Windows Update depois de reiniciar" }
+        if ($wu.Restantes)  { Falha "Windows Update: faltaram $($wu.Restantes) (limite de 90 min) - rode de novo depois de reiniciar" }
+        if ($wu.Reiniciar)  { Write-Host '  As atualizacoes terminam de instalar quando o computador reiniciar.' -ForegroundColor Yellow }
+    }
+} else { Falha 'Windows Update nao executado (sem internet)' }
+}
+
+# ---------------- CHROME PADRAO (CONFIRMACAO) ----------------
+if (Quer 'Chrome') {
+Etapa 'Confirmar Chrome como padrao'
+if (-not (Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe")) { Falha 'Chrome nao instalado - padrao nao alterado' }
+elseif (Chrome-EhPadrao) { Ok 'Chrome e o navegador padrao' }
+else {
+    # O Windows 11 nao deixa programa nenhum trocar o navegador padrao sozinho: abre a tela certa para 1 clique
+    try { Start-Process 'ms-settings:defaultapps?registeredAppMachine=Google Chrome' } catch { try { Start-Process 'ms-settings:defaultapps' } catch {} }
+    Write-Host '  >>> CLIQUE em "Definir padrao" na janela de Configuracoes que abriu (Chrome) <<<' -ForegroundColor Yellow
+    $ok = $false
+    for ($i = 0; $i -lt 60 -and -not $ok; $i++) { Start-Sleep 3; $ok = Chrome-EhPadrao }
+    if ($ok) { Ok 'Chrome e o navegador padrao (confirmado)' }
+    else { Falha 'Chrome ainda NAO e o padrao: Configuracoes > Aplicativos > Aplicativos padrao > Google Chrome > Definir padrao' }
+}
+}
+
+# Energia de volta ao que era antes da pos-formatacao
+if ($EnergiaOrig) {
+    try {
+        if ($null -ne $EnergiaOrig.Dormir)   { powercfg /setacvalueindex SCHEME_CURRENT SUB_SLEEP STANDBYIDLE $EnergiaOrig.Dormir | Out-Null }
+        if ($null -ne $EnergiaOrig.Hibernar) { powercfg /setacvalueindex SCHEME_CURRENT SUB_SLEEP HIBERNATEIDLE $EnergiaOrig.Hibernar | Out-Null }
+        if ($null -ne $EnergiaOrig.Tela)     { powercfg /setacvalueindex SCHEME_CURRENT SUB_VIDEO VIDEOIDLE $EnergiaOrig.Tela | Out-Null }
+        powercfg /setactive SCHEME_CURRENT | Out-Null
+        Ok ("Energia voltou ao normal (na tomada dorme em {0} min)" -f $(if ($EnergiaOrig.Dormir) { [int]($EnergiaOrig.Dormir / 60) } else { 'nunca' }))
+    } catch {}
 }
 
 } # fim das etapas 1-8
