@@ -385,6 +385,21 @@ function Le-Saude {
         $proj = (Get-CimInstance -Namespace root\wmi -ClassName BatteryStaticData -ErrorAction Stop | Measure-Object DesignedCapacity -Sum).Sum
         if ($proj -gt 0) { $s.Bateria = [int][Math]::Min(100, [Math]::Round($full / $proj * 100)) }
     } catch {}
+    if ($null -eq $s.Bateria) {
+        # Alguns notebooks (ex.: ThinkPad com duas baterias) nao respondem pelo WMI: usa o relatorio do proprio Windows
+        try {
+            $bx = Join-Path $script:Work 'bateria-painel.xml'
+            powercfg /batteryreport /xml /output "$bx" | Out-Null
+            [xml]$x = Get-Content $bx -Raw
+            $bts = @($x.BatteryReport.Batteries.Battery | Where-Object { [double]$_.DesignCapacity -gt 0 })
+            if ($bts.Count) {
+                $orig = ($bts | ForEach-Object { [double]$_.DesignCapacity } | Measure-Object -Sum).Sum
+                $atual = ($bts | ForEach-Object { [double]$_.FullChargeCapacity } | Measure-Object -Sum).Sum
+                $s.Bateria = [int][Math]::Min(100, [Math]::Round($atual / $orig * 100))
+            }
+            Remove-Item $bx -Force -ErrorAction SilentlyContinue
+        } catch {}
+    }
     try { $s.SemDriver = @(Get-CimInstance Win32_PnPEntity | Where-Object { $_.ConfigManagerErrorCode -ne 0 -and $_.ConfigManagerErrorCode -ne 22 }).Count } catch { $s.SemDriver = 0 }
     $s.Internet = Tem-Internet
     return $s
