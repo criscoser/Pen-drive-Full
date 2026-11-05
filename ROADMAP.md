@@ -20,6 +20,7 @@
 - Lista de SHA-256 oficiais das ISOs / Official ISO SHA-256 list
 - Modo só otimizar para PC em uso, com ponto de restauração / Optimize-only mode for PCs in use, with a restore point
 - Painel gráfico escuro (`PAINEL.bat`) com abas Otimizar/Instalar/Remover e andamento ao vivo / Dark GUI panel with Optimize/Install/Remove tabs and live progress
+- Diagnóstico sem Windows pelo Linux Mint (relatório na tela e no pendrive) / Diagnostics without Windows via Linux Mint (report on screen and on the drive)
 
 ## 🔜 Próximos / Next
 - [ ] **Idioma: português e inglês (EUA), com escolha pelo usuário** / **Language: Portuguese and US English, user-selectable** (painel já feito; falta menu do Ventoy, log do script e relatório / panel done; Ventoy menu, script log and report to do)

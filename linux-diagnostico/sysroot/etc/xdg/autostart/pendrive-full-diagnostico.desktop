@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Pendrive Full - Diagnostico
+Comment=Diagnostico do computador sem Windows
+Exec=/opt/pendrive-full/iniciar.sh
+Terminal=false
+X-GNOME-Autostart-enabled=true

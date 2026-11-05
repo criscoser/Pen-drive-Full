@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Diagnóstico Pendrive Full
+Comment=Saúde do SSD, bateria, memória e BIOS (não altera nada)
+Exec=xfce4-terminal --title "PENDRIVE://FULL - diagnostico" --geometry=104x36 --hide-menubar -x bash /opt/pendrive-full/diagnostico.sh --ja
+Icon=utilities-system-monitor
+Terminal=false
+Categories=System;

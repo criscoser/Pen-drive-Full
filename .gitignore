@@ -24,3 +24,5 @@ Relatorios/
 pendrive/Relatorios/
 !pendrive/ISOs/SHA256-OFICIAIS.txt
 pendrive/PosFormatacao/painel-prefs.json
+pendrive/ventoy/*.tar.gz
+*.deb

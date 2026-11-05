@@ -1,6 +1,10 @@
 Linux live (roda direto do pendrive, sem instalar, ou instala no PC):
 - Linux Mint XFCE - https://linuxmint.com/download.php
     Leve, para PCs fracos (2 GB de RAM ja roda) e para salvar arquivos de um Windows que nao liga.
+    DIAGNOSTICO SEM WINDOWS: no menu do Ventoy aparece como "Linux Mint XFCE + DIAGNOSTICO".
+    Ao chegar na area de trabalho, abre sozinho o diagnostico (SSD/HD, bateria, memoria, BIOS),
+    mostra o resultado na tela e salva o relatorio em Relatorios\ no pendrive. Nao altera nada no PC.
+    Aperte N na janela se quiser so usar o Linux. O nome da ISO tem que ser o mesmo do ventoy.json.
 - (opcional) Linux Mint Cinnamon - https://linuxmint.com/download.php
     Mais bonito e parecido com o Windows, para PCs com 4 GB de RAM ou mais.
 - Kali Linux (kali-linux-2026.3-installer-amd64.iso) - https://cdimage.kali.org/current/

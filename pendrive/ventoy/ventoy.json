@@ -14,12 +14,27 @@
     },
     {
       "VTOY_DEFAULT_IMAGE": "F4>Search and boot Windows"
+    },
+    {
+      "VTOY_LINUX_REMOUNT": "1"
     }
   ],
   "auto_install": [
     {
       "parent": "/ISOs/Windows",
       "template": "/ventoy/script/autounattend.xml"
+    }
+  ],
+  "injection": [
+    {
+      "image": "/ISOs/Linux/linuxmint-22.3-xfce-64bit.iso",
+      "archive": "/ventoy/diagnostico-linux.tar.gz"
+    }
+  ],
+  "menu_alias": [
+    {
+      "image": "/ISOs/Linux/linuxmint-22.3-xfce-64bit.iso",
+      "alias": "Linux Mint XFCE  +  DIAGNOSTICO (PC sem Windows)"
     }
   ]
 }

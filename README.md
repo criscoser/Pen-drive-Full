@@ -20,6 +20,7 @@ Pendrive multiboot de manutenção baseado no [Ventoy](https://github.com/ventoy
 - Instala o Windows 11 (ou o 10, para PCs que não aceitam o 11) com o arquivo de respostas `autounattend.xml`: português, teclado ABNT2, conta local sem e-mail da Microsoft, sem telas de privacidade. **A escolha do disco continua manual**, para nunca apagar o disco errado.
 - Ferramentas de boot: MemTest86 (memória), Rescuezilla (backup/clonagem), SystemRescue (partições, TestDisk/PhotoRec), netboot.xyz (baixa outros sistemas pela rede), ShredOS (apagar disco).
 - Linux live: Linux Mint XFCE (leve, para PCs fracos e resgate de arquivos) e Kali Linux (instalador; segurança e redes).
+- **Diagnóstico sem Windows:** no menu do Ventoy, "Linux Mint XFCE + DIAGNOSTICO" abre o Linux e roda sozinho o diagnóstico (SSD/HD pelo SMART, bateria, memória, processador, BIOS). O resultado aparece na tela e o relatório, igual ao do Windows, é salvo no pendrive e entra no resumo das máquinas. Feito com o [LiveInjection](https://github.com/ventoy/LiveInjection) do Ventoy (código em `linux-diagnostico/`).
 - Ferramentas portáteis no Windows: CrystalDiskInfo (SSD), HWiNFO (hardware e temperaturas), **teste de estresse** com Prime95 (processador e memória) e FurMark 2 (placa de vídeo), e **teste das portas USB** com USB Device Tree Viewer e CrystalDiskMark.
 - `ISOs/SHA256-OFICIAIS.txt` lista o SHA-256 oficial de cada ISO para conferir o download.
 - Se a máquina reiniciar com o pendrive conectado e ninguém escolher nada, em 10 segundos ela entra no Windows instalado.
@@ -103,6 +104,7 @@ A definir antes da publicação. As ferramentas de terceiros (Ventoy, MemTest86,
 - Installs Windows 11 (or 10, for PCs that can't run 11) with an `autounattend.xml` answer file: local account without a Microsoft account, no privacy screens. **Disk selection stays manual**, so it never wipes the wrong drive.
 - Boot tools: MemTest86 (RAM), Rescuezilla (backup/cloning), SystemRescue (partitions, TestDisk/PhotoRec), netboot.xyz (boots other systems over the network), ShredOS (disk wipe).
 - Live Linux: Linux Mint XFCE (lightweight, for weak PCs and file rescue) and Kali Linux (installer; security and networking).
+- **Diagnostics without Windows:** the Ventoy entry "Linux Mint XFCE + DIAGNOSTICO" boots Linux and runs the health check by itself (SSD/HDD via SMART, battery, RAM, CPU, BIOS). Results show on screen and the same report as on Windows is saved to the drive and added to the machines summary. Built with Ventoy's [LiveInjection](https://github.com/ventoy/LiveInjection) (source in `linux-diagnostico/`).
 - Portable Windows tools: CrystalDiskInfo (SSD), HWiNFO (hardware and temperatures), **stress testing** with Prime95 (CPU and RAM) and FurMark 2 (graphics card), and **USB port testing** with USB Device Tree Viewer and CrystalDiskMark.
 - `ISOs/SHA256-OFICIAIS.txt` lists each ISO's official SHA-256 to verify downloads.
 - If the machine reboots with the drive plugged in and nobody picks anything, it boots the installed Windows after 10 seconds.
