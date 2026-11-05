@@ -1,5 +1,9 @@
 POS-FORMATACAO - como usar
 
+PAINEL (recomendado): dois cliques em PAINEL.bat. Uma janela com a saude da maquina e tres caminhos:
+  Pos-formatacao, Otimizar e Relatorio. Nas abas voce marca o que fazer, instalar e remover.
+  Os .bat abaixo continuam funcionando e abrem o mesmo painel.
+
 MAQUINA JA FORMATADA:
   1. Conecte o carregador e o pendrive.
   2. De dois cliques em POS-FORMATACAO.bat (na raiz do pendrive) e clique em Sim.

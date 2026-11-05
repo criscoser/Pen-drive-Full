@@ -24,6 +24,13 @@ Pendrive multiboot de manutenção baseado no [Ventoy](https://github.com/ventoy
 - `ISOs/SHA256-OFICIAIS.txt` lista o SHA-256 oficial de cada ISO para conferir o download.
 - Se a máquina reiniciar com o pendrive conectado e ninguém escolher nada, em 10 segundos ela entra no Windows instalado.
 
+**Painel (`PAINEL.bat`)**
+- Uma janela só, em modo escuro, com a saúde da máquina (SSD, bateria, memória, drivers) logo ao abrir.
+- Três caminhos: **Pós-formatação** (PC recém-formatado), **Otimizar** (PC em uso) e **Relatório** (não altera nada), e atalhos para as ferramentas do pendrive.
+- Abas **Otimizar / Instalar / Remover**: você marca o que quer. O que já está instalado aparece apagado, e a lista de remoção mostra só os apps que existem **naquele** PC.
+- Andamento ao vivo, passo a passo, e botão para abrir o relatório no final. Português e inglês.
+- No primeiro login depois da formatação ele abre sozinho e começa em 60 segundos se ninguém mexer.
+
 **Depois da instalação (`POS-FORMATACAO.bat`, ou sozinho no primeiro login)**
 1. Energia: não dorme na tomada durante o processo.
 2. Wi-Fi: se não houver internet, lista as redes disponíveis para a pessoa escolher e digitar a senha (e pode salvar no pendrive para as próximas máquinas).
@@ -52,11 +59,13 @@ Pendrive multiboot de manutenção baseado no [Ventoy](https://github.com/ventoy
 
 ```
 pendrive/                       → conteúdo da raiz do pendrive Ventoy
+├── PAINEL.bat                  → painel gráfico (tudo numa janela)
 ├── POS-FORMATACAO.bat          → pós-formatação completa
 ├── RELATORIO.bat               → só o relatório
 ├── OTIMIZAR.bat                → só otimizar um PC em uso
 ├── PosFormatacao/
-│   ├── pos-formatacao.ps1      → o script principal
+│   ├── pos-formatacao.ps1      → o motor (faz o trabalho)
+│   ├── painel.ps1              → o painel gráfico
 │   └── config.example.json     → copie para config.json e preencha
 ├── ventoy/
 │   ├── ventoy.json             → configuração do Ventoy
@@ -97,6 +106,13 @@ A definir antes da publicação. As ferramentas de terceiros (Ventoy, MemTest86,
 - Portable Windows tools: CrystalDiskInfo (SSD), HWiNFO (hardware and temperatures), **stress testing** with Prime95 (CPU and RAM) and FurMark 2 (graphics card), and **USB port testing** with USB Device Tree Viewer and CrystalDiskMark.
 - `ISOs/SHA256-OFICIAIS.txt` lists each ISO's official SHA-256 to verify downloads.
 - If the machine reboots with the drive plugged in and nobody picks anything, it boots the installed Windows after 10 seconds.
+
+**Panel (`PAINEL.bat`)**
+- One dark-mode window showing the machine's health (SSD, battery, RAM, drivers) as soon as it opens.
+- Three paths: **Post-install** (fresh PC), **Optimize** (PC in use) and **Report** (changes nothing), plus shortcuts to the drive's tools.
+- **Optimize / Install / Remove** tabs: tick what you want. Apps already installed are greyed out, and the removal list only shows apps that exist on **that** PC.
+- Live step-by-step progress and a button to open the report at the end. Portuguese and English.
+- At the first logon after a reinstall it opens by itself and starts after 60 seconds if nobody touches it.
 
 **After installation (`POS-FORMATACAO.bat`, or automatically at first logon)**
 1. Power: no sleep on AC while it runs.

@@ -1,4 +1,4 @@
-﻿param([switch]$SoRelatorio, [switch]$SoOtimizar)
+﻿param([switch]$SoRelatorio, [switch]$SoOtimizar, [switch]$Painel, [string]$Plano = '')
 # =====================================================================
 #  POS-FORMATACAO - pendrive Ventoy
 #  Roda sozinho no 1o login (autounattend) ou com dois cliques em
@@ -45,8 +45,42 @@ if (Test-Path $cfgArq) {
 # Eleva para administrador se precisar
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
-    Start-Process powershell.exe -Verb RunAs -ArgumentList ("-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" + $(if ($SoRelatorio) { ' -SoRelatorio' } elseif ($SoOtimizar) { ' -SoOtimizar' } else { '' }))
+    Start-Process powershell.exe -Verb RunAs -ArgumentList ("-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" + $(if ($SoRelatorio) { ' -SoRelatorio' } elseif ($SoOtimizar) { ' -SoOtimizar' } elseif ($Painel) { ' -Painel' } else { '' }) + $(if ($Plano) { " -Plano `"$Plano`"" } else { '' }))
     exit
+}
+
+# Sem plano: abre o painel grafico (PAINEL). O painel escolhe tudo e chama este script com -Plano.
+# PF_SEM_PAINEL=1 forca o modo antigo (janela simples), usado se o painel nao abrir.
+$painelArq = Join-Path (Split-Path -Parent $PSCommandPath) 'painel.ps1'
+$painelOk = $false
+if (-not $Plano -and -not $env:PF_SEM_PAINEL -and (Test-Path $painelArq)) {
+    # So abre o painel se ele estiver integro (sem erro de sintaxe); senao usa a janela antiga
+    try {
+        $errosPainel = $null
+        [void][System.Management.Automation.Language.Parser]::ParseFile($painelArq, [ref]$null, [ref]$errosPainel)
+        $painelOk = (@($errosPainel).Count -eq 0)
+    } catch { $painelOk = $false }
+}
+if ($Painel -and -not $painelOk) {
+    Add-Type -AssemblyName System.Windows.Forms
+    [void][System.Windows.Forms.MessageBox]::Show('O painel nao pode ser aberto (arquivo painel.ps1 ausente ou com erro). Use POS-FORMATACAO.bat, OTIMIZAR.bat ou RELATORIO.bat.', 'Pendrive Full')
+    exit
+}
+if ($painelOk) {
+    $modoPainel = if ($Painel) { 'inicio' } elseif ($SoRelatorio) { 'relatorio' } elseif ($SoOtimizar) { 'otimizar' } else { 'pos' }
+    $autoPainel = if ($modoPainel -eq 'pos') { ' -Auto' } else { '' }
+    Start-Process powershell.exe -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -STA -File `"$painelArq`" -Modo $modoPainel$autoPainel"
+    exit
+}
+
+# Plano vindo do painel: o que fazer, instalar e remover
+$P = $null
+if ($Plano) {
+    try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch {}
+    try { $P = Get-Content $Plano -Raw -Encoding UTF8 | ConvertFrom-Json }
+    catch { Write-Host "  [FALHA] Plano invalido: $($_.Exception.Message)"; exit 1 }
+    $SoRelatorio = ($P.Modo -eq 'relatorio')
+    $SoOtimizar  = ($P.Modo -eq 'otimizar')
 }
 
 $ErrorActionPreference = 'Continue'
@@ -55,7 +89,7 @@ $Pendrive = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
 $Work = 'C:\PosFormatacao'
 New-Item -ItemType Directory -Force -Path $Work | Out-Null
 Start-Transcript -Path (Join-Path $Work 'log.txt') -Append | Out-Null
-$Host.UI.RawUI.WindowTitle = $(if ($SoOtimizar) { 'OTIMIZAR - nao feche esta janela' } else { 'POS-FORMATACAO - nao feche esta janela' })
+try { $Host.UI.RawUI.WindowTitle = $(if ($SoOtimizar) { 'OTIMIZAR - nao feche esta janela' } else { 'POS-FORMATACAO - nao feche esta janela' }) } catch {}
 $resumo = New-Object System.Collections.Generic.List[string]
 
 $tempos = New-Object System.Collections.Generic.List[object]
@@ -69,10 +103,23 @@ function Fecha-Etapa {
     }
     $script:etapaAtual = $null
 }
+$Passos = @('Relatorio'); $passoN = 0
 function Etapa($t) {
     Fecha-Etapa
+    $script:passoN++
+    $tot = [Math]::Max($script:Passos.Count, $script:passoN)
     $script:etapaAtual = $t; $script:inicioEtapa = $relogio.Elapsed
-    Write-Host "`n===== $t =====" -ForegroundColor Cyan
+    Write-Host "`n===== [$($script:passoN)/$tot] $t =====" -ForegroundColor Cyan
+    if ($script:P) { Write-Host "##PASSO|$($script:passoN)|$tot|$t" }
+}
+# O que fazer: com plano (painel) vem das caixinhas; sem plano, o comportamento antigo de cada modo
+function Quer($k) {
+    if ($script:P) { return [bool]$script:P.Opcoes.$k }
+    if ($k -eq 'Ponto')    { return [bool]$script:SoOtimizar }
+    if ($k -eq 'Renomear') { return (-not $script:SoOtimizar -and -not $script:SoRelatorio) }
+    if ($k -eq 'Propagandas') { return $true }
+    if ($k -in 'Privacidade','Visual','Temporarios','InicioRapido') { return [bool]$script:Otimizar }
+    return (-not $script:SoOtimizar)   # Energia, Aparencia, Chrome, Drivers, WindowsUpdate
 }
 function Ok($t)    { Write-Host "  [OK] $t" -ForegroundColor Green; $resumo.Add("[OK]    $t") }
 function Falha($t) { Write-Host "  [FALHA] $t" -ForegroundColor Yellow; $resumo.Add("[FALHA] $t") }
@@ -265,14 +312,23 @@ foreach ($c in $Catalogo) { $marcado[$c.Id] = ($Programas -contains $c.Id) -or (
 
 # Internet agora? Se nao, tenta a rede salva no pendrive antes de abrir a janela
 $internet = Tem-Internet
-if (-not $internet -and $WifiNome -and -not $SoOtimizar) {
+if (-not $internet -and $WifiNome -and -not $SoOtimizar -and -not $P) {
     Write-Host "  Conectando na rede salva ($WifiNome)..."
     Novo-PerfilWifi $WifiNome $WifiSenha
     $internet = Espera-Internet 30
 }
 
 $escolha = $null
-if ($SoOtimizar) {
+if ($P) {
+    foreach ($k in @($marcado.Keys)) { $marcado[$k] = $false }
+    foreach ($id in @($P.Instalar)) {
+        if (-not $id) { continue }
+        if (-not ($Catalogo.Id -contains $id)) { $Catalogo += [pscustomobject]@{ Nome=$id; Id=$id; Reg='' } }
+        $marcado[$id] = $true
+    }
+    $marcado['OFFICE'] = [bool]$P.Office
+    $escolha = [pscustomobject]@{ Ok=$true; Marcado=$marcado; Otimizar=$true; Ssid=[string]$P.Wifi.Ssid; Senha=[string]$P.Wifi.Senha; Salvar=[bool]$P.Wifi.Salvar }
+} elseif ($SoOtimizar) {
     # Modo SO OTIMIZAR: para PC em uso. Nao instala, nao desinstala, nao renomeia.
     $PerguntarProgramas = $false
     foreach ($k in @($marcado.Keys)) { $marcado[$k] = $false }
@@ -319,9 +375,22 @@ if (-not $marcado['OFFICE']) { $OfficeProduto = '' } elseif (-not $OfficeProduto
 Write-Host ("  Vai instalar: " + $(if ($Programas.Count -or $OfficeProduto) { (@($Catalogo | Where-Object { $marcado[$_.Id] } | ForEach-Object { $_.Nome }) -join ', ') } else { 'nenhum programa' })) -ForegroundColor Green
 Write-Host '  A partir daqui e tudo automatico.' -ForegroundColor Green
 
-# ---------------- 1. ENERGIA ----------------
-if ($SoOtimizar) {
-    Etapa '1/4 Ponto de restauracao'
+$lixoPlano = $null
+if ($P) { $lixoPlano = @($P.Remover | Where-Object { $_ }) } elseif ($SoOtimizar) { $lixoPlano = @() }
+$temRemocao = ($null -eq $lixoPlano) -or ($lixoPlano.Count -gt 0)
+$precisaNet = ($Programas.Count -gt 0) -or [bool]$OfficeProduto -or (Quer 'Drivers') -or (Quer 'WindowsUpdate')
+$Passos = @(@(
+    $(if (Quer 'Ponto') { 'Ponto' }), $(if (Quer 'Energia') { 'Energia' }), $(if ($precisaNet) { 'Internet' }),
+    $(if ($temRemocao -or (Quer 'Propagandas') -or (Quer 'Aparencia')) { 'Limpeza' }),
+    $(if ((Quer 'Privacidade') -or (Quer 'Visual') -or (Quer 'Temporarios') -or (Quer 'InicioRapido')) { 'Otimizacao' }),
+    $(if ($Programas.Count) { 'Programas' }), $(if ($OfficeProduto) { 'Office' }), $(if (Quer 'Chrome') { 'Chrome' }),
+    $(if (Quer 'Drivers') { 'Drivers' }), $(if (Quer 'WindowsUpdate') { 'WindowsUpdate' }), 'Relatorio'
+) | Where-Object { $_ })
+
+# ---------------- 1. PONTO DE RESTAURACAO E ENERGIA ----------------
+$naTomada = $true
+if (Quer 'Ponto') {
+    Etapa 'Ponto de restauracao'
     try { Enable-ComputerRestore -Drive "$env:SystemDrive\" -ErrorAction Stop } catch {}
     # O Windows so cria um ponto a cada 24 h; isto libera criar agora
     Set-Reg 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore' 'SystemRestorePointCreationFrequency' 0
@@ -332,12 +401,13 @@ if ($SoOtimizar) {
         Ok 'Ponto de restauracao criado: "Antes de otimizar (Pendrive Full)"'
     } catch {
         Falha "Ponto de restauracao NAO foi criado: $($_.Exception.Message)"
+        Add-Type -AssemblyName System.Windows.Forms
         $r = [System.Windows.Forms.MessageBox]::Show("Nao foi possivel criar o ponto de restauracao.`nSem ele, as mudancas so podem ser desfeitas manualmente.`n`nContinuar mesmo assim?", 'Otimizar', 'YesNo', 'Warning')
-        if ($r -ne 'Yes') { Write-Host '  Cancelado. Nada foi alterado.' -ForegroundColor Yellow; Stop-Transcript | Out-Null; Start-Sleep 3; exit }
+        if ($r -ne 'Yes') { Write-Host '  Cancelado. Nada foi alterado.' -ForegroundColor Yellow; Stop-Transcript | Out-Null; if ($P) { exit 2 }; Start-Sleep 3; exit }
     }
-    $naTomada = $true
-} else {
-Etapa '1/10 Energia'
+}
+if (Quer 'Energia') {
+Etapa 'Energia'
 powercfg /change standby-timeout-ac 0 | Out-Null
 powercfg /change hibernate-timeout-ac 0 | Out-Null
 powercfg /change monitor-timeout-ac 15 | Out-Null
@@ -349,8 +419,8 @@ if (-not $naTomada) { Write-Host '  ATENCAO: o notebook esta na BATERIA. Ligue o
 
 # ---------------- 2. WI-FI ----------------
 $procOffice = $null
-if (-not $SoOtimizar) {
-Etapa '2/10 Internet'
+if ($precisaNet) {
+Etapa 'Internet'
 if ($internet) {
     Ok $(if ($WifiNome -and -not $escolha.Ssid) { "Internet funcionando (rede $WifiNome)" } else { 'Internet funcionando' })
 } elseif ($escolha -and $escolha.Ssid) {
@@ -398,7 +468,6 @@ if ($OfficeProduto -and -not $temOffice -and $internet) {
 } # fim da etapa 2
 
 # ---------------- 3. LIMPEZA DO WINDOWS ----------------
-Etapa $(if ($SoOtimizar) { '2/4 Propagandas e sugestoes' } else { '3/10 Limpeza do Windows' })
 $lixo = @(
     'Microsoft.BingNews','Microsoft.BingSearch','Microsoft.GamingApp','Microsoft.XboxApp',
     'Microsoft.XboxGamingOverlay','Microsoft.XboxGameOverlay','Microsoft.XboxSpeechToTextOverlay',
@@ -409,7 +478,10 @@ $lixo = @(
     'Microsoft.SkypeApp','Microsoft.WindowsMaps','7EE7776C.LinkedInforWindows',
     '*CandyCrush*','*Spotify*','*Disney*','*TikTok*','*Instagram*','*Facebook*'
 )
-if ($SoOtimizar) { Ok 'Nenhum aplicativo removido (modo so otimizar)' } else {
+if ($null -ne $lixoPlano) { $lixo = @($lixoPlano) }
+if ($lixo.Count -or (Quer 'Propagandas') -or (Quer 'Aparencia')) {
+Etapa 'Limpeza e propagandas'
+if (-not $lixo.Count) { Ok 'Nenhum aplicativo removido' } else {
 $removidos = 0
 # Lista tudo uma vez so (consultar o Windows a cada app era o que deixava esta etapa lenta)
 $todosApps = @(Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue)
@@ -422,49 +494,56 @@ foreach ($n in $lixo) {
         try { Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName -ErrorAction Stop | Out-Null } catch {}
     }
 }
-Ok "$removidos aplicativos desnecessarios removidos"
+Ok "$removidos aplicativos removidos"
 }
 
-# Politicas da maquina: sem propaganda/apps sugeridos, sem Widgets
-Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent' 'DisableWindowsConsumerFeatures' 1
-Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent' 'DisableConsumerAccountStateContent' 1
-Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent' 'DisableSoftLanding' 1
-Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Dsh' 'AllowNewsAndInterests' 0
-# Edge quieto (nao pede para ser padrao, nao abre sozinho)
-Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' 'HideFirstRunExperience' 1
-Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' 'DefaultBrowserSettingEnabled' 0
-Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' 'StartupBoostEnabled' 0
-Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' 'BackgroundModeEnabled' 0
-if (-not $SoOtimizar) { Remove-Item "$env:PUBLIC\Desktop\Microsoft Edge.lnk" -Force -ErrorAction SilentlyContinue }
+if (Quer 'Propagandas') {
+    # Politicas da maquina: sem propaganda/apps sugeridos, sem Widgets
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent' 'DisableWindowsConsumerFeatures' 1
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent' 'DisableConsumerAccountStateContent' 1
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent' 'DisableSoftLanding' 1
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Dsh' 'AllowNewsAndInterests' 0
+    # Edge quieto (nao pede para ser padrao, nao abre sozinho)
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' 'HideFirstRunExperience' 1
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' 'DefaultBrowserSettingEnabled' 0
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' 'StartupBoostEnabled' 0
+    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Edge' 'BackgroundModeEnabled' 0
+}
+if (Quer 'Aparencia') { Remove-Item "$env:PUBLIC\Desktop\Microsoft Edge.lnk" -Force -ErrorAction SilentlyContinue }
 
 # Preferencias do usuario atual e dos proximos usuarios
 function Ajusta-Usuario($raiz) {
-    $cdm = "$raiz\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
-    foreach ($v in 'SystemPaneSuggestionsEnabled','SilentInstalledAppsEnabled','SoftLandingEnabled','PreInstalledAppsEnabled','OemPreInstalledAppsEnabled','SubscribedContent-338388Enabled','SubscribedContent-338389Enabled','SubscribedContent-353694Enabled','SubscribedContent-353696Enabled','SubscribedContent-310093Enabled') { Set-Reg $cdm $v 0 }
     $adv = "$raiz\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
-    if (-not $SoOtimizar) {
-        # Aparencia: so na pos-formatacao (num PC em uso a pessoa ja esta acostumada)
+    if (Quer 'Propagandas') {
+        $cdm = "$raiz\Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager"
+        foreach ($v in 'SystemPaneSuggestionsEnabled','SilentInstalledAppsEnabled','SoftLandingEnabled','PreInstalledAppsEnabled','OemPreInstalledAppsEnabled','SubscribedContent-338388Enabled','SubscribedContent-338389Enabled','SubscribedContent-353694Enabled','SubscribedContent-353696Enabled','SubscribedContent-310093Enabled') { Set-Reg $cdm $v 0 }
+        Set-Reg $adv 'Start_IrisRecommendations' 0   # sem dicas no Iniciar
+        Set-Reg $adv 'Start_AccountNotifications' 0
+        Set-Reg $adv 'ShowSyncProviderNotifications' 0
+    }
+    if (Quer 'Aparencia') {
         Set-Reg $adv 'HideFileExt' 0                 # mostrar extensoes
         Set-Reg $adv 'TaskbarAl' 0                   # barra a esquerda
         Set-Reg "$raiz\Software\Microsoft\Windows\CurrentVersion\Search" 'SearchboxTaskbarMode' 1  # pesquisa so com icone
     }
-    Set-Reg $adv 'Start_IrisRecommendations' 0   # sem dicas no Iniciar
-    Set-Reg $adv 'Start_AccountNotifications' 0
-    Set-Reg $adv 'ShowSyncProviderNotifications' 0
 }
-Ajusta-Usuario 'HKCU:'
-reg.exe load 'HKU\PFDefault' 'C:\Users\Default\NTUSER.DAT' | Out-Null
-if ($LASTEXITCODE -eq 0) {
-    Ajusta-Usuario 'Registry::HKEY_USERS\PFDefault'
-    [gc]::Collect(); Start-Sleep 1
-    reg.exe unload 'HKU\PFDefault' | Out-Null
+if ((Quer 'Propagandas') -or (Quer 'Aparencia')) {
+    Ajusta-Usuario 'HKCU:'
+    reg.exe load 'HKU\PFDefault' 'C:\Users\Default\NTUSER.DAT' | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        Ajusta-Usuario 'Registry::HKEY_USERS\PFDefault'
+        [gc]::Collect(); Start-Sleep 1
+        reg.exe unload 'HKU\PFDefault' | Out-Null
+    }
 }
-Ok $(if ($SoOtimizar) { 'Propagandas e sugestoes desligadas' } else { 'Propagandas e sugestoes desligadas, extensoes visiveis, barra a esquerda' })
+if (Quer 'Propagandas') { Ok 'Propagandas e sugestoes desligadas' }
+if (Quer 'Aparencia') { Ok 'Extensoes visiveis, barra a esquerda, pesquisa so com icone' }
+}
 
 # ---------------- 4. PRIVACIDADE E OTIMIZACAO ----------------
-Etapa $(if ($SoOtimizar) { '3/4 Privacidade e otimizacao' } else { '4/10 Privacidade e otimizacao' })
-if (-not $Otimizar) { Ok 'Otimizacao desligada no config.json - pulada' }
-else {
+if ((Quer 'Privacidade') -or (Quer 'Visual') -or (Quer 'Temporarios') -or (Quer 'InicioRapido')) {
+Etapa 'Privacidade e otimizacao'
+    if (Quer 'Privacidade') {
     # --- Telemetria e envio de dados (o minimo que o Windows aceita) ---
     $dc = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection'
     Set-Reg $dc 'AllowTelemetry' 0                      # Home/Pro tratam como o minimo ("Obrigatorio")
@@ -522,10 +601,12 @@ else {
     )
     $nt = 0
     foreach ($t in $tarefas) { try { Disable-ScheduledTask -TaskPath $t[0] -TaskName $t[1] -ErrorAction Stop | Out-Null; $nt++ } catch {} }
+    }
 
     # --- Preferencias por usuario (atual e proximos) ---
     function Otimiza-Usuario($raiz) {
         $pol = "$raiz\Software\Policies\Microsoft"
+        if (Quer 'Privacidade') {
         Set-Reg "$pol\Windows\CloudContent" 'DisableTailoredExperiencesWithDiagnosticData' 1
         Set-Reg "$pol\Windows\Explorer" 'DisableSearchBoxSuggestions' 1
         Set-Reg "$pol\Windows\WindowsCopilot" 'TurnOffWindowsCopilot' 1
@@ -547,6 +628,8 @@ else {
         Set-Reg "$pol\Office\16.0\Common\ClientTelemetry" 'DisableTelemetry' 1
         Set-Reg "$pol\Office\16.0\Common\Privacy" 'controllerconnectedservicesenabled' 2
         Set-Reg "$pol\Office\Common\ClientTelemetry" 'SendTelemetry' 3
+        }
+        if (Quer 'Visual') {
         # Jogos: sem gravacao em segundo plano
         Set-Reg "$raiz\System\GameConfigStore" 'GameDVR_Enabled' 0
         Set-Reg "$raiz\Software\Microsoft\Windows\CurrentVersion\GameDVR" 'AppCaptureEnabled' 0
@@ -556,15 +639,17 @@ else {
         Set-Reg "$raiz\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" 'TaskbarAnimations' 0
         Set-Reg "$raiz\Software\Microsoft\Windows\DWM" 'EnableAeroPeek' 0
         Set-Reg "$raiz\Control Panel\Desktop" 'MenuShowDelay' '100' 'String'
+        }
     }
     Otimiza-Usuario 'HKCU:'
     reg.exe load 'HKU\PFDefault' 'C:\Users\Default\NTUSER.DAT' 2>$null | Out-Null
     if ($LASTEXITCODE -eq 0) { Otimiza-Usuario 'Registry::HKEY_USERS\PFDefault'; [gc]::Collect(); Start-Sleep 1; reg.exe unload 'HKU\PFDefault' | Out-Null }
-    Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\GameDVR' 'AllowGameDVR' 0
+    if (Quer 'Visual') { Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\GameDVR' 'AllowGameDVR' 0 }
 
     # --- Desempenho e manutencao (vale para qualquer marca) ---
     # Inicializacao Rapida desligada: evita problemas de driver e de atualizacao
-    Set-Reg 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power' 'HiberbootEnabled' 0
+    if (Quer 'InicioRapido') { Set-Reg 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Power' 'HiberbootEnabled' 0 }
+    if (Quer 'Temporarios') {
     # Sensor de Armazenamento: limpa temporarios e lixeira com mais de 30 dias (Downloads nao e tocado)
     $ss = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\StorageSense'
     Set-Reg $ss 'AllowStorageSenseGlobal' 1
@@ -578,9 +663,12 @@ else {
     # Limpa temporarios da instalacao
     Remove-Item "$env:TEMP\*" -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item "$env:WINDIR\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue
+    }
 
-    Ok "Telemetria no minimo, sem propaganda/Bing/Copilot/Recall, $nt tarefas de coleta desligadas"
-    Ok 'Visual mais leve, Inicializacao Rapida desligada, limpeza automatica e TRIM do SSD ligado'
+    if (Quer 'Privacidade')  { Ok "Telemetria no minimo, sem Bing/Copilot/Recall, $nt tarefas de coleta desligadas" }
+    if (Quer 'Visual')       { Ok 'Visual mais leve (sem transparencia e animacoes)' }
+    if (Quer 'InicioRapido') { Ok 'Inicializacao Rapida desligada' }
+    if (Quer 'Temporarios')  { Ok 'Temporarios limpos, limpeza automatica e TRIM do SSD ligados' }
 }
 
 # Instala um programa pelo winget, tentando de novo nos erros que costumam ser passageiros
@@ -600,11 +688,9 @@ function Instala-Winget($wg, $id) {
     return $cod
 }
 
-if (-not $SoOtimizar) {
 # ---------------- 5. PROGRAMAS ----------------
-Etapa '5/10 Programas'
-if (-not $Programas.Count) { Ok 'Nenhum programa selecionado' }
-else {
+if ($Programas.Count) {
+Etapa 'Programas'
 if ($internet) {
     $winget = Get-Command winget.exe -ErrorAction SilentlyContinue
     if (-not $winget) {
@@ -649,8 +735,8 @@ if ($internet) {
 }
 
 # ---------------- 5. OFFICE ----------------
-Etapa '6/10 Microsoft Office'
-if (-not $OfficeProduto) { Ok 'Office nao selecionado - pulado' }
+if ($OfficeProduto) { Etapa 'Microsoft Office' }
+if (-not $OfficeProduto) { }
 elseif ($temOffice) { Ok 'Office ja estava instalado' }
 elseif ($procOffice) {
     if (-not $procOffice.HasExited) { Write-Host '  Esperando o Office terminar (ele ja vinha instalando em segundo plano)...' }
@@ -661,7 +747,8 @@ elseif ($procOffice) {
 } elseif (-not $internet) { Falha 'Office nao instalado (sem internet)' }
 
 # ---------------- 6. CHROME PADRAO E BARRA DE TAREFAS ----------------
-Etapa '7/10 Chrome como padrao e barra de tarefas'
+if (Quer 'Chrome') {
+Etapa 'Chrome padrao e barra de tarefas'
 if (Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe") {
     # Chrome sem perguntas: sem tela de boas-vindas, sem pedir para ser padrao
     $cp = 'HKLM:\SOFTWARE\Policies\Google\Chrome'
@@ -699,9 +786,11 @@ if (Test-Path "$env:ProgramFiles\Google\Chrome\Application\chrome.exe") {
     Set-Reg 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Explorer' 'LockedStartLayout' 1
     Ok 'Chrome sera o navegador padrao e ficara na barra (Edge sai da barra) - vale a partir do proximo login'
 } else { Falha 'Chrome nao instalado, padrao nao alterado' }
+}
 
 # ---------------- 7. DRIVERS E BIOS LENOVO ----------------
-Etapa '8/10 Drivers e BIOS do fabricante'
+if (Quer 'Drivers') {
+Etapa 'Drivers e BIOS do fabricante'
 $fab = (Get-CimInstance Win32_ComputerSystem).Manufacturer
 $tvsu = "${env:ProgramFiles(x86)}\Lenovo\System Update\tvsu.exe"
 if ($fab -notmatch 'LENOVO') { Ok "Fabricante $fab - drivers ficam com o Windows Update" }
@@ -725,15 +814,19 @@ else {
     } else { Falha 'Lenovo System Update nao instalado' }
 }
 
+}
+
 # ---------------- 8. WINDOWS UPDATE ----------------
-Etapa '9/10 Windows Update'
+if (Quer 'WindowsUpdate') {
+Etapa 'Windows Update'
 if ($internet) { Start-Process UsoClient.exe -ArgumentList 'StartInteractiveScan' -ErrorAction SilentlyContinue; Ok 'Busca do Windows Update iniciada (continua em segundo plano)' }
-} # fim das etapas 5-9
+else { Falha 'Windows Update nao iniciado (sem internet)' }
+}
 
 } # fim das etapas 1-8
 if ($SoRelatorio) { $internet = $false; $resumo.Add('[OK]    Somente relatorio (pos-formatacao nao foi executada agora)') }
 # ---------------- 9. RELATORIO E NOME ----------------
-Etapa $(if ($SoOtimizar) { '4/4 Relatorio da maquina' } elseif ($SoRelatorio) { 'Relatorio da maquina' } else { '10/10 Relatorio da maquina' })
+Etapa 'Relatorio da maquina'
 function Esc($t) { [System.Net.WebUtility]::HtmlEncode([string]$t) }
 
 $cs   = Get-CimInstance Win32_ComputerSystem
@@ -970,9 +1063,10 @@ $linhas
 "@ | Out-File (Join-Path $pasta 'Resumo-das-maquinas.html') -Encoding utf8
 } catch { Write-Host "  (aviso) nao foi possivel gravar no pendrive: $($_.Exception.Message)" -ForegroundColor DarkYellow }
 Write-Host "  Relatorio salvo na Area de Trabalho e no pendrive (pasta Relatorios)" -ForegroundColor Green
+if ($P) { Write-Host "##RELATORIO|$(Join-Path $desk $arqRel)" }
 try { Start-Process (Join-Path $desk $arqRel) } catch {}
 
-if (-not $SoOtimizar -and -not $SoRelatorio -and $env:COMPUTERNAME -ne $novoNome) {
+if ((Quer 'Renomear') -and $env:COMPUTERNAME -ne $novoNome) {
     try { Rename-Computer -NewName $novoNome -Force -ErrorAction Stop; Write-Host "  Nome do computador sera $novoNome apos reiniciar" -ForegroundColor Green } catch { Write-Host "  Nao foi possivel renomear: $($_.Exception.Message)" -ForegroundColor Yellow }
 }
 
@@ -991,4 +1085,4 @@ Write-Host " 2) Com o CARREGADOR LIGADO, reinicie o notebook para concluir" -For
 Write-Host " drivers, BIOS e o novo nome do computador." -ForegroundColor Green
 }
 Write-Host "============================================================" -ForegroundColor Green
-Read-Host "`nAperte ENTER para fechar"
+if ($P) { Fecha-Etapa; Write-Host '##FIM' } else { Read-Host "`nAperte ENTER para fechar" }
