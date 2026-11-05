@@ -69,7 +69,8 @@ if ($Painel -and -not $painelOk) {
 if ($painelOk) {
     $modoPainel = if ($Painel) { 'inicio' } elseif ($SoRelatorio) { 'relatorio' } elseif ($SoOtimizar) { 'otimizar' } else { 'pos' }
     $autoPainel = if ($modoPainel -eq 'pos') { ' -Auto' } else { '' }
-    Start-Process powershell.exe -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -STA -File `"$painelArq`" -Modo $modoPainel$autoPainel"
+    # -WindowStyle Hidden vai DENTRO dos argumentos: no Start-Process ele esconderia tambem a janela do painel
+    Start-Process powershell.exe -ArgumentList "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -STA -File `"$painelArq`" -Modo $modoPainel$autoPainel"
     exit
 }
 

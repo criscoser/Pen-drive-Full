@@ -12,8 +12,8 @@
 # Eleva para administrador (uma vez so; o motor herda)
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
-    $a = "-NoProfile -ExecutionPolicy Bypass -STA -File `"$PSCommandPath`" -Modo $Modo" + $(if ($Auto) { ' -Auto' } else { '' })
-    Start-Process powershell.exe -Verb RunAs -WindowStyle Hidden -ArgumentList $a
+    $a = "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -STA -File `"$PSCommandPath`" -Modo $Modo" + $(if ($Auto) { ' -Auto' } else { '' })
+    Start-Process powershell.exe -Verb RunAs -ArgumentList $a
     exit
 }
 
@@ -24,10 +24,16 @@ $Pendrive = Split-Path -Parent $Raiz                    # raiz do pendrive
 $Motor    = Join-Path $Raiz 'pos-formatacao.ps1'
 $Work     = 'C:\PosFormatacao'
 New-Item -ItemType Directory -Force -Path $Work | Out-Null
+# Registro passo a passo (para descobrir problemas sem precisar ver a janela do PowerShell)
+$LogP = Join-Path $Work 'painel-log.txt'
+function Log-P($m) { try { "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff') $m" | Out-File $script:LogP -Append -Encoding utf8 } catch {} }
+try { if ((Test-Path $LogP) -and (Get-Item $LogP).Length -gt 512KB) { Remove-Item $LogP -Force } } catch {}
+Log-P "---- painel iniciado: Modo=$Modo Auto=$Auto PS=$($PSVersionTable.PSVersion) pasta=$PSScriptRoot"
 
 # Se o painel falhar, cai no modo antigo (janela simples) para a maquina nunca ficar sem pos-formatacao
 function Usa-ModoAntigo($erro) {
     try { "$(Get-Date) $erro" | Out-File (Join-Path $Work 'painel-erro.txt') -Append -Encoding utf8 } catch {}
+    Log-P "ERRO GERAL: $erro"
     if ($script:Modo -eq 'inicio') {
         try { Add-Type -AssemblyName System.Windows.Forms; [void][System.Windows.Forms.MessageBox]::Show("O painel nao abriu:`n$erro`n`nUse POS-FORMATACAO.bat, OTIMIZAR.bat ou RELATORIO.bat.", 'Pendrive Full') } catch {}
         return
@@ -53,6 +59,9 @@ using System.Collections.Concurrent;
 public static class PFNativo {
     [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
     [DllImport("dwmapi.dll")] public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int val, int size);
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hwnd, int cmd);
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);
+    public static void Mostrar(IntPtr hwnd) { ShowWindow(hwnd, 9); ShowWindow(hwnd, 5); SetForegroundWindow(hwnd); }
     public static void TituloEscuro(IntPtr hwnd) {
         int on = 1;
         try { if (DwmSetWindowAttribute(hwnd, 20, ref on, 4) != 0) DwmSetWindowAttribute(hwnd, 19, ref on, 4); } catch {}
@@ -79,6 +88,11 @@ public class PFExecutor {
 }
 [void][PFNativo]::SetProcessDPIAware()
 [System.Windows.Forms.Application]::EnableVisualStyles()
+# Erros dentro dos eventos da janela vao para o registro em vez de fechar tudo
+try { [System.Windows.Forms.Application]::SetUnhandledExceptionMode([System.Windows.Forms.UnhandledExceptionMode]::CatchException) } catch {}
+[System.Windows.Forms.Application]::add_ThreadException({ Log-P "ERRO NA JANELA: $($_.Exception.Message)" })
+Log-P 'componentes carregados'
+
 
 # ------------------------------------------------------------------
 # Configuracao do pendrive (mesmo config.json do motor)
@@ -801,6 +815,7 @@ $bExec.Add_Click({ Executa })
 
 # Fechar durante a execucao
 $form.Add_FormClosing({
+    Log-P "fechando a janela (motivo: $($_.CloseReason))"
     if ($script:Exec.Rodando) {
         $r = [System.Windows.Forms.MessageBox]::Show((T 'sairQ'), 'pendrive-full', 'YesNo', 'Warning')
         if ($r -ne 'Yes') { $_.Cancel = $true }
@@ -809,25 +824,38 @@ $form.Add_FormClosing({
 
 # Ao abrir: barra de titulo escura, le a saude e vai para o modo pedido
 $form.Add_Shown({
-    try { [PFNativo]::TituloEscuro($script:form.Handle) } catch {}
-    Aplica-Idioma
-    $script:form.Activate(); $script:form.Refresh()
-    $script:Saude = Le-Saude
-    Mostra-Saude
-    switch ($script:Modo) {
-        'pos'       { Monta-Config 'pos' }
-        'otimizar'  { Monta-Config 'otimizar' }
-        'relatorio' { Abre-Modo 'relatorio' }
-    }
-    if ($script:Auto -and $script:Modo -eq 'pos') {
-        $script:Contagem.Resta = $(if ($script:Cfg.PerguntarProgramas) { 60 } else { 5 })
-        $script:bExec.Text = (T 'conta') -f $script:Contagem.Resta
-        $script:timerConta.Start()
+    Log-P 'janela exibida'
+    # Garante que a janela aparece na frente (mesmo se o processo foi aberto escondido)
+    try { [PFNativo]::TituloEscuro($script:form.Handle); [PFNativo]::Mostrar($script:form.Handle) } catch {}
+    $script:form.TopMost = $true; $script:form.Activate(); $script:form.TopMost = $false
+    try {
+        Aplica-Idioma
+        $script:form.Refresh()
+        $script:Saude = Le-Saude
+        Log-P "saude lida: $(($script:Saude.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join '; ')"
+        Mostra-Saude
+        switch ($script:Modo) {
+            'pos'       { Monta-Config 'pos' }
+            'otimizar'  { Monta-Config 'otimizar' }
+            'relatorio' { Abre-Modo 'relatorio' }
+        }
+        if ($script:Auto -and $script:Modo -eq 'pos') {
+            $script:Contagem.Resta = $(if ($script:Cfg.PerguntarProgramas) { 60 } else { 5 })
+            $script:bExec.Text = (T 'conta') -f $script:Contagem.Resta
+            $script:timerConta.Start()
+        }
+        Log-P 'pronto para uso'
+    } catch {
+        Log-P "ERRO ao abrir: $($_.Exception.Message) @ linha $($_.InvocationInfo.ScriptLineNumber)"
+        [void][System.Windows.Forms.MessageBox]::Show("Erro ao preparar o painel:`n$($_.Exception.Message)`n`nDetalhes em $($script:LogP)", 'pendrive-full')
     }
 })
 
 Mostra-Tela $telaInicio
-[void]$form.ShowDialog()
+$form.WindowState = 'Normal'
+Log-P 'abrindo a janela'
+$res = $form.ShowDialog()
+Log-P "janela fechada ($res)"
 $timerExec.Stop(); $timerConta.Stop()
 $form.Dispose()
 }
