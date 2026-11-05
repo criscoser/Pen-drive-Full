@@ -63,7 +63,7 @@ docs/                           → imagens do README
 
 ### Como montar o seu
 
-1. Instale o Ventoy no pendrive (exFAT, GPT, Secure Boot ligado).
+1. Instale o Ventoy no pendrive (exFAT, GPT e, em Opções, marque **Secure Boot Support**). Essa opção é do instalador do Ventoy, não da BIOS: ela permite dar boot também em PCs com Secure Boot ligado. Na primeira vez num PC assim, o Ventoy pede para registrar a chave (*Enroll key*), uma vez só. Com o Secure Boot desligado na BIOS também funciona.
 2. Copie o conteúdo da pasta `pendrive/` para a raiz do pendrive.
 3. Baixe as ISOs e ferramentas indicadas no `LEIA-ME.txt` de cada pasta, sempre dos sites oficiais.
 4. (Opcional) Copie `PosFormatacao/config.example.json` para `config.json` para fixar Wi-Fi, programas e Office. Sem ele, o script pergunta o Wi-Fi na hora.
@@ -113,7 +113,7 @@ A definir antes da publicação. As ferramentas de terceiros (Ventoy, MemTest86,
 
 ### Build your own
 
-1. Install Ventoy on the USB drive (exFAT, GPT, Secure Boot on).
+1. Install Ventoy on the USB drive (exFAT, GPT and, under Options, tick **Secure Boot Support**). This is a Ventoy installer option, not a BIOS setting: it lets the drive boot on PCs with Secure Boot enabled. The first time on such a PC, Ventoy asks you to enroll its key, once. It also works with Secure Boot disabled in the BIOS.
 2. Copy the contents of `pendrive/` to the root of the drive.
 3. Download the ISOs and tools listed in each folder's `LEIA-ME.txt`, always from the official sites.
 4. (Optional) Copy `PosFormatacao/config.example.json` to `config.json` to preset Wi-Fi, apps and Office. Without it, the script asks for Wi-Fi on the spot.
