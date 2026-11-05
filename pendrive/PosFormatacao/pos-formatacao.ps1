@@ -327,9 +327,9 @@ if ($SoOtimizar) {
     Set-Reg 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore' 'SystemRestorePointCreationFrequency' 0
     $pontoOk = $false
     try {
-        Checkpoint-Computer -Description 'Antes de otimizar (Pendrive Fodao)' -RestorePointType MODIFY_SETTINGS -ErrorAction Stop
+        Checkpoint-Computer -Description 'Antes de otimizar (Pendrive Full)' -RestorePointType MODIFY_SETTINGS -ErrorAction Stop
         $pontoOk = $true
-        Ok 'Ponto de restauracao criado: "Antes de otimizar (Pendrive Fodao)"'
+        Ok 'Ponto de restauracao criado: "Antes de otimizar (Pendrive Full)"'
     } catch {
         Falha "Ponto de restauracao NAO foi criado: $($_.Exception.Message)"
         $r = [System.Windows.Forms.MessageBox]::Show("Nao foi possivel criar o ponto de restauracao.`nSem ele, as mudancas so podem ser desfeitas manualmente.`n`nContinuar mesmo assim?", 'Otimizar', 'YesNo', 'Warning')
@@ -982,7 +982,7 @@ Write-Host " PRONTO! O relatorio abriu no navegador (e esta na Area de Trabalho)
 if ($SoOtimizar) {
     Write-Host " 1) TIRE O PENDRIVE e reinicie o computador para tudo valer." -ForegroundColor Yellow
     Write-Host " 2) Para DESFAZER: menu Iniciar > 'Criar um ponto de restauracao' >" -ForegroundColor Green
-    Write-Host "    Restauracao do Sistema > 'Antes de otimizar (Pendrive Fodao)'." -ForegroundColor Green
+    Write-Host "    Restauracao do Sistema > 'Antes de otimizar (Pendrive Full)'." -ForegroundColor Green
 } elseif ($SoRelatorio) {
     Write-Host " Pode tirar o pendrive. Nenhuma configuracao desta maquina foi alterada." -ForegroundColor Green
 } else {
