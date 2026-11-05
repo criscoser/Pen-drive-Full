@@ -118,6 +118,8 @@ $TX = @{
 pt = @{
   sub='> formatar · otimizar · diagnosticar'; scan='> analisando este PC...'
   m1='[1] PÓS-FORMAT'; m1d='PC recém-formatado'; m1k='tudo marcado'
+  recom='★ recomendado aqui'; horas='{0} horas'; dias='{0} dias'
+  avisoOt='Este Windows foi instalado há {0}.`n`nO OTIMIZAR não instala programas, drivers nem Office: ele foi feito para PC em uso, que já tem tudo.`nPara PC recém-formatado use a PÓS-FORMATAÇÃO.`n`nSim = abrir a Pós-formatação`nNão = continuar no Otimizar mesmo assim'
   m2='[2] OTIMIZAR';   m2d='PC em uso';          m2k='nada removido'
   m3='[3] RELATÓRIO';  m3d='avaliar o PC';       m3k='não altera nada'
   tools='tools:'; t_rel='Relatórios'
@@ -142,6 +144,8 @@ pt = @{
 en = @{
   sub='> install · optimize · diagnose'; scan='> scanning this PC...'
   m1='[1] POST-INSTALL'; m1d='freshly installed PC'; m1k='everything ticked'
+  recom='★ recommended here'; horas='{0} hours'; dias='{0} days'
+  avisoOt='This Windows was installed {0} ago.`n`nOPTIMIZE does not install apps, drivers or Office: it is meant for a PC in use that already has everything.`nFor a freshly installed PC use POST-INSTALL.`n`nYes = open Post-install`nNo = continue with Optimize anyway'
   m2='[2] OPTIMIZE';     m2d='PC in use';            m2k='nothing removed'
   m3='[3] REPORT';       m3d='assess the PC';        m3k='changes nothing'
   tools='tools:'; t_rel='Reports'
@@ -295,12 +299,12 @@ for ($i = 0; $i -lt 3; $i++) {
         $ctl.Add_MouseEnter({ Destaca-Cartao $this.Tag $true })
         $ctl.Add_MouseLeave({ Destaca-Cartao $this.Tag $false })
     }
-    $Cartoes += [pscustomobject]@{ Modo = $d[0]; Fora = $cx[0]; Dentro = $cx[1]; Titulo = $a }
+    $Cartoes += [pscustomobject]@{ Modo = $d[0]; Fora = $cx[0]; Dentro = $cx[1]; Titulo = $a; Etiqueta = $k; Recomendado = $false }
 }
 function Destaca-Cartao($modo, $on) {
     foreach ($c in $script:Cartoes) {
         if ($c.Modo -eq $modo) {
-            $c.Fora.BackColor = $(if ($on) { $script:C.Acento } else { $script:C.Linha })
+            $c.Fora.BackColor = $(if ($on -or $c.Recomendado) { $script:C.Acento } else { $script:C.Linha })
             $c.Dentro.BackColor = $(if ($on) { $script:C.Hover } else { $script:C.Painel })
             $c.Titulo.ForeColor = $(if ($on) { $script:C.Acento } else { $script:C.Texto })
         }
@@ -362,6 +366,7 @@ function Le-Saude {
         $s.Bios = [string]$bi.SMBIOSBIOSVersion
         $s.Win = (($os.Caption -replace 'Microsoft\s*','') -replace 'Windows\s*','win').ToLower()
         $s.Host = $env:COMPUTERNAME
+        try { $s.HorasInstalado = [int]((Get-Date) - $os.InstallDate).TotalHours } catch { $s.HorasInstalado = $null }
         $s.Ram = [Math]::Round(((Get-CimInstance Win32_PhysicalMemory | Measure-Object Capacity -Sum).Sum / 1GB))
     } catch {}
     try {
@@ -795,9 +800,29 @@ function Executa {
     $script:timerExec.Start()
 }
 
+# Windows instalado ha menos de 3 dias = PC recem-formatado: recomenda a pos-formatacao
+function Windows-Novo { return ($script:Saude -and $null -ne $script:Saude.HorasInstalado -and $script:Saude.HorasInstalado -lt 72) }
+function Tempo-Instalado {
+    $h = [int]$script:Saude.HorasInstalado
+    if ($h -lt 48) { return (T 'horas') -f [Math]::Max(1, $h) } else { return (T 'dias') -f [int][Math]::Floor($h / 24) }
+}
+function Marca-Recomendado {
+    foreach ($c in $script:Cartoes) {
+        if ($c.Modo -eq 'pos') {
+            $c.Recomendado = [bool](Windows-Novo)
+            if ($c.Recomendado) { $c.Fora.BackColor = $script:C.Acento; $c.Etiqueta.Text = T 'recom'; $c.Etiqueta.ForeColor = $script:C.Acento }
+        }
+    }
+}
 function Abre-Modo($m) {
-    if ($m -eq 'relatorio') { $script:ModoAtual = 'relatorio'; Executa }
-    else { Monta-Config $m }
+    if ($m -eq 'relatorio') { $script:ModoAtual = 'relatorio'; Executa; return }
+    if ($m -eq 'otimizar' -and (Windows-Novo)) {
+        Log-P "aviso: Otimizar escolhido num Windows instalado ha $($script:Saude.HorasInstalado) h"
+        $r = [System.Windows.Forms.MessageBox]::Show(((T 'avisoOt') -f (Tempo-Instalado)), 'pendrive-full', 'YesNoCancel', 'Information')
+        if ($r -eq 'Cancel') { return }
+        if ($r -eq 'Yes') { $m = 'pos' }
+    }
+    Monta-Config $m
 }
 
 # ------------------------------------------------------------------
@@ -819,6 +844,7 @@ function Aplica-Idioma {
         Atualiza-Abas
     }
     Mostra-Saude
+    try { Marca-Recomendado } catch {}
     try { @{ Idioma = $script:L } | ConvertTo-Json | Set-Content $script:prefArq -Encoding UTF8 } catch {}
 }
 $bPT.Add_Click({ $script:L = 'pt'; Aplica-Idioma })
@@ -849,9 +875,10 @@ $form.Add_Shown({
         $script:Saude = Le-Saude
         Log-P "saude lida: $(($script:Saude.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)" }) -join '; ')"
         Mostra-Saude
+        Marca-Recomendado
         switch ($script:Modo) {
             'pos'       { Monta-Config 'pos' }
-            'otimizar'  { Monta-Config 'otimizar' }
+            'otimizar'  { Abre-Modo 'otimizar' }
             'relatorio' { Abre-Modo 'relatorio' }
         }
         if ($script:Auto -and $script:Modo -eq 'pos') {
