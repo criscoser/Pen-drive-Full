@@ -1,6 +1,8 @@
 Linux live (roda direto do pendrive, sem instalar, ou instala no PC):
 - Linux Mint XFCE - https://linuxmint.com/download.php
     Leve, para PCs fracos (2 GB de RAM ja roda) e para salvar arquivos de um Windows que nao liga.
+- (opcional) Linux Mint Cinnamon - https://linuxmint.com/download.php
+    Mais bonito e parecido com o Windows, para PCs com 4 GB de RAM ou mais.
 - Kali Linux (kali-linux-2026.3-installer-amd64.iso) - https://cdimage.kali.org/current/
     INSTALA o Kali no computador (ferramentas de seguranca e analise de rede).
     A versao Live (roda sem instalar) hoje so e distribuida por torrent: se quiser, baixe o .torrent
